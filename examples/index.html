@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PQDIF Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e1e4ed;
+      --muted: #8b8fa3;
+      --accent: #6c8cff;
+      --green: #4ade80;
+      --red: #f87171;
+      --yellow: #fbbf24;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header .badge { background: var(--accent); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+
+    .toolbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .toolbar label { font-size: 13px; color: var(--muted); }
+    .toolbar select, .toolbar input[type="file"] { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+    .toolbar select:focus { outline: 1px solid var(--accent); }
+
+    .stats { display: flex; gap: 16px; padding: 16px 24px; flex-wrap: wrap; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; min-width: 140px; }
+    .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+    .stat .value.green { color: var(--green); }
+    .stat .value.accent { color: var(--accent); }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 24px 24px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+    .card h3 { font-size: 13px; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .card canvas { width: 100% !important; }
+
+    .full-width { grid-column: 1 / -1; }
+
+    .records-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .records-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 500; }
+    .records-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    .records-table tr:hover td { background: rgba(108, 140, 255, 0.05); }
+    .type-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+    .type-container { background: rgba(108, 140, 255, 0.15); color: var(--accent); }
+    .type-datasource { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+    .type-settings { background: rgba(251, 191, 36, 0.15); color: var(--yellow); }
+    .type-observation { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+
+    .drop-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 40px; text-align: center; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(108, 140, 255, 0.05); }
+    .drop-zone p { font-size: 14px; }
+    .drop-zone .hint { font-size: 12px; margin-top: 8px; }
+
+    #app { display: none; }
+    #welcome { padding: 40px 24px; max-width: 600px; margin: 0 auto; }
+    #welcome h2 { font-size: 20px; margin-bottom: 12px; }
+    #welcome p { color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>PQDIF Viewer</h1>
+  <span class="badge">IEEE 1159.3</span>
+</header>
+
+<div id="welcome">
+  <h2>Power Quality Data Viewer</h2>
+  <p>Load a PQDIF JSON export file to visualize power quality measurement data including waveforms, RMS trends, and observation events.</p>
+  <div class="drop-zone" id="dropZone">
+    <p>Drop a <strong>.json</strong> file here</p>
+    <p class="hint">or click to browse &mdash; generated from PQDIF via <code>file.getJSON()</code></p>
+    <input type="file" id="fileInput" accept=".json" style="display:none">
+  </div>
+  <div style="margin-top: 16px; text-align: center;">
+    <button id="loadSample" style="background: var(--accent); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 13px;">Load Sample Data</button>
+  </div>
+</div>
+
+<div id="app">
+  <div class="toolbar">
+    <label>Observation:</label>
+    <select id="obsSelect"></select>
+    <label style="margin-left: 16px;">Channel:</label>
+    <select id="channelSelect"></select>
+  </div>
+
+  <div class="stats" id="statsBar"></div>
+
+  <div class="grid">
+    <div class="card full-width">
+      <h3>Waveform / Time Series</h3>
+      <canvas id="chartWaveform" height="100"></canvas>
+    </div>
+    <div class="card">
+      <h3>Channel Summary</h3>
+      <canvas id="chartChannels" height="140"></canvas>
+    </div>
+    <div class="card">
+      <h3>Observation Timeline</h3>
+      <canvas id="chartTimeline" height="140"></canvas>
+    </div>
+    <div class="card full-width">
+      <h3>Records</h3>
+      <div style="overflow-x: auto;">
+        <table class="records-table" id="recordsTable">
+          <thead><tr><th>#</th><th>Type</th><th>Name</th><th>Time</th><th>Channels</th><th>Values</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let DATA = null;
+let waveformChart = null;
+let channelChart = null;
+let timelineChart = null;
+
+const TYPE_NAMES = { 1: 'Container', 2: 'DataSource', 3: 'MonitorSettings', 4: 'Observation' };
+const TYPE_CLASSES = { 1: 'type-container', 2: 'type-datasource', 3: 'type-settings', 4: 'type-observation' };
+
+// File loading
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+document.getElementById('loadSample').addEventListener('click', async () => {
+  try {
+    const resp = await fetch('sample-data.json');
+    DATA = await resp.json();
+    showApp();
+  } catch (e) {
+    alert('Could not load sample data. Make sure sample-data.json is in the same directory.');
+  }
+});
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      DATA = JSON.parse(e.target.result);
+      showApp();
+    } catch (err) {
+      alert('Invalid JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showApp() {
+  document.getElementById('welcome').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  populateObservations();
+  renderRecords();
+  renderStats();
+  renderTimeline();
+  renderChannels();
+}
+
+function populateObservations() {
+  const sel = document.getElementById('obsSelect');
+  sel.innerHTML = '';
+  const observations = DATA.records.filter(r => r.recType === 4);
+  observations.forEach((obs, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    const name = obs.record.observationName || 'Obs ' + (obs.recIndex);
+    const time = obs.record.timeStart ? new Date(obs.record.timeStart).toLocaleDateString() : '';
+    opt.textContent = name + (time ? ' (' + time + ')' : '');
+    sel.appendChild(opt);
+  });
+  sel.onchange = () => { populateChannels(); renderWaveform(); renderStats(); };
+  populateChannels();
+  renderWaveform();
+}
+
+function populateChannels() {
+  const sel = document.getElementById('channelSelect');
+  sel.innerHTML = '';
+  const obs = getSelectedObs();
+  if (!obs) return;
+  obs.record.channelInstances.forEach((ci, i) => {
+    const chDef = getChannelDef(ci.channelDefnIdx);
+    const name = chDef ? chDef.channelName : 'Channel ' + ci.channelDefnIdx;
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+  sel.onchange = () => renderWaveform();
+}
+
+function getSelectedObs() {
+  const observations = DATA.records.filter(r => r.recType === 4);
+  const idx = parseInt(document.getElementById('obsSelect').value);
+  return observations[idx] || null;
+}
+
+function getChannelDef(idx) {
+  const ds = DATA.records.find(r => r.recType === 2);
+  if (!ds) return null;
+  return ds.record.channelDefinitions[idx] || null;
+}
+
+function getChannelName(ci) {
+  const chDef = getChannelDef(ci.channelDefnIdx);
+  return chDef ? chDef.channelName : 'Ch' + ci.channelDefnIdx;
+}
+
+// ---- Renderers ----
+
+const COLORS = ['#6c8cff', '#4ade80', '#f87171', '#fbbf24', '#a78bfa', '#f472b6', '#38bdf8', '#fb923c'];
+
+function renderWaveform() {
+  const obs = getSelectedObs();
+  const chIdx = parseInt(document.getElementById('channelSelect').value);
+  if (!obs || isNaN(chIdx)) return;
+
+  const ci = obs.record.channelInstances[chIdx];
+  if (!ci) return;
+
+  const datasets = [];
+  ci.seriesInstances.forEach((si, seriesIdx) => {
+    if (!si.seriesValues || si.seriesValues.length === 0) return;
+    // Skip time series (index 0 usually) for waveform display
+    const chDef = getChannelDef(ci.channelDefnIdx);
+    const sd = chDef && chDef.seriesDefinitions[seriesIdx];
+    const isTime = sd && sd.valueTypeID && sd.valueTypeID.startsWith('62e890c6');
+    if (isTime && seriesIdx === 0) return;
+
+    datasets.push({
+      label: 'Series ' + seriesIdx,
+      data: si.seriesValues,
+      borderColor: COLORS[seriesIdx % COLORS.length],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.1
+    });
+  });
+
+  if (waveformChart) waveformChart.destroy();
+  const ctx = document.getElementById('chartWaveform').getContext('2d');
+  waveformChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: datasets.length > 0 ? datasets[0].data.map((_, i) => i) : [], datasets },
+    options: {
+      responsive: true,
+      animation: false,
+      plugins: { legend: { labels: { color: '#8b8fa3', font: { size: 11 } } } },
+      scales: {
+        x: { display: true, title: { display: true, text: 'Sample Index', color: '#8b8fa3' }, ticks: { color: '#8b8fa3' }, grid: { color: '#2a2d3a' } },
+        y: { title: { display: true, text: 'Value', color: '#8b8fa3' }, ticks: { color: '#8b8fa3' }, grid: { color: '#2a2d3a' } }
+      }
+    }
+  });
+}
+
+function renderChannels() {
+  const ds = DATA.records.find(r => r.recType === 2);
+  if (!ds) return;
+
+  const names = ds.record.channelDefinitions.map(ch => ch.channelName);
+  const quantities = ds.record.channelDefinitions.map(ch => {
+    // Map quantity type GUIDs to readable names
+    const qt = ch.quantityTypeID;
+    if (!qt) return 'Unknown';
+    if (qt.startsWith('82aff667')) return 'Value Log';
+    if (qt.startsWith('7067be5e')) return 'Waveform';
+    if (qt.startsWith('c1f00400')) return 'Phasor';
+    return qt.substring(0, 8);
+  });
+
+  // Count by type
+  const typeCounts = {};
+  quantities.forEach(q => { typeCounts[q] = (typeCounts[q] || 0) + 1; });
+
+  if (channelChart) channelChart.destroy();
+  const ctx = document.getElementById('chartChannels').getContext('2d');
+  channelChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(typeCounts),
+      datasets: [{
+        data: Object.values(typeCounts),
+        backgroundColor: COLORS.slice(0, Object.keys(typeCounts).length),
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#8b8fa3', font: { size: 11 }, padding: 12 } }
+      }
+    }
+  });
+}
+
+function renderTimeline() {
+  const observations = DATA.records.filter(r => r.recType === 4);
+  const labels = observations.map(obs => {
+    const t = obs.record.timeStart;
+    return t ? new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  });
+  const values = observations.map(obs => obs.record.channelInstances.reduce((sum, ci) => {
+    return sum + ci.seriesInstances.reduce((s, si) => s + (si.seriesValues ? si.seriesValues.length : 0), 0);
+  }, 0));
+
+  if (timelineChart) timelineChart.destroy();
+  const ctx = document.getElementById('chartTimeline').getContext('2d');
+  timelineChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Data Points',
+        data: values,
+        backgroundColor: 'rgba(108, 140, 255, 0.6)',
+        borderRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8b8fa3', maxRotation: 45, font: { size: 10 } }, grid: { display: false } },
+        y: { title: { display: true, text: 'Values', color: '#8b8fa3' }, ticks: { color: '#8b8fa3' }, grid: { color: '#2a2d3a' } }
+      }
+    }
+  });
+}
+
+function renderStats() {
+  const obs = getSelectedObs();
+  const bar = document.getElementById('statsBar');
+  bar.innerHTML = '';
+
+  const observations = DATA.records.filter(r => r.recType === 4);
+  const ds = DATA.records.find(r => r.recType === 2);
+
+  const totalChannels = ds ? ds.record.channelDefinitions.length : 0;
+  const totalObs = observations.length;
+  let totalValues = 0;
+  observations.forEach(o => {
+    o.record.channelInstances.forEach(ci => {
+      ci.seriesInstances.forEach(si => {
+        if (si.seriesValues) totalValues += si.seriesValues.length;
+      });
+    });
+  });
+
+  const stats = [
+    { label: 'Records', value: DATA.records.length, cls: 'accent' },
+    { label: 'Channels', value: totalChannels, cls: 'accent' },
+    { label: 'Observations', value: totalObs, cls: 'green' },
+    { label: 'Total Values', value: totalValues.toLocaleString(), cls: '' }
+  ];
+
+  if (obs) {
+    const chCount = obs.record.channelInstances.length;
+    let obsValues = 0;
+    obs.record.channelInstances.forEach(ci => {
+      ci.seriesInstances.forEach(si => { if (si.seriesValues) obsValues += si.seriesValues.length; });
+    });
+    stats.push({ label: 'Obs Channels', value: chCount, cls: 'accent' });
+    stats.push({ label: 'Obs Values', value: obsValues.toLocaleString(), cls: 'green' });
+  }
+
+  stats.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'stat';
+    div.innerHTML = '<div class="label">' + s.label + '</div><div class="value ' + s.cls + '">' + s.value + '</div>';
+    bar.appendChild(div);
+  });
+}
+
+function renderRecords() {
+  const tbody = document.querySelector('#recordsTable tbody');
+  tbody.innerHTML = '';
+  DATA.records.forEach(r => {
+    const rec = r.record || {};
+    const tr = document.createElement('tr');
+    const typeName = TYPE_NAMES[r.recType] || 'Unknown';
+    const typeClass = TYPE_CLASSES[r.recType] || '';
+    let name = '';
+    let time = '';
+    let channels = '';
+    let values = '';
+
+    if (r.recType === 1) { name = rec.fileName || ''; }
+    else if (r.recType === 2) { name = rec.name || ''; channels = rec.channelDefinitions ? rec.channelDefinitions.length : ''; }
+    else if (r.recType === 4) {
+      name = rec.observationName || '';
+      time = rec.timeStart ? new Date(rec.timeStart).toLocaleString() : '';
+      channels = rec.channelInstances ? rec.channelInstances.length : '';
+      let v = 0;
+      if (rec.channelInstances) rec.channelInstances.forEach(ci => {
+        if (ci.seriesInstances) ci.seriesInstances.forEach(si => { if (si.seriesValues) v += si.seriesValues.length; });
+      });
+      values = v.toLocaleString();
+    }
+
+    tr.innerHTML = '<td>' + r.recIndex + '</td><td><span class="type-badge ' + typeClass + '">' + typeName + '</span></td><td>' + name + '</td><td>' + time + '</td><td>' + channels + '</td><td>' + values + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>

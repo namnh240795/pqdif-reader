@@ -1,0 +1,46 @@
+-+ PQDIFNet 1.4.0 Release Notes + -
+2022 July 12
+
+	- Added methods to support setting the tagChannelGroupID value for channels. This is required to support Harmonic 
+	and Interharmonic Group data.
+
+	- Corrected the description of the PQDIF time stamp to reflect the actual base of Excel time stamps of 12/30/1899.
+
+	- Added additional comments to clarify that PQDIF time stamps are UTC based.
+
+	- New Tags: Added tagCharactMinVoltagePU, tagCharactMaxVoltagePU, tagCharactMinVoltage, tagCharactMaxVoltage, 
+	tagCharactMinCurrent, and tagCharactMaxCurrent for min/max rms voltage and current
+
+	- New Tag: Added tagSagTypeID for IEEE 1668 sag type
+
+	- New IDs: Added equipment IDs.
+
+	- New IDs: Added ID_QC_PRESSURE and ID_QC_PRESSURE_ATMOSPHERIC for storing pressure
+
+	- New IDs: Added ID_SAGTYPE_1668_I, ID_SAGTYPE_1668_II, and ID_SAGTYPE_1668_III for 
+	specifying IEEE Std 1668 sag type.
+
+	- Fixed Misspelling in ID: Changed ID_QU_CELCIUS to ID_QU_CELSIUS.
+
+-+ PQDIFNet 1.3.0 Release Notes + -
+2021 December 2
+
+	- Open source release.
+
+-+ PQDIFNet 1.2.0 Release Notes + -
+2017 April 17
+
+	- Updated to Visual Studio 2015 and v140 of the C run-time libraries.
+
+-+ PQDIFNet 1.1.0 Release Notes + -
+2016 May 24
+
+	- Re-factored code and moved method implementations to the .cpp file;
+	- Fixed a memory leak in ObservationGetSeriesData().
+
+-+ PQDIFNet 1.0.0 Release Notes + -
+2013 January 25
+
+Introduction
+    PQDIFNet is a .Net version of PQDCOM and can be used from any .Net language such as CSharp, VB.Net, and C++/CLI.
+    The assembly will build as PQDIFNet.dll.

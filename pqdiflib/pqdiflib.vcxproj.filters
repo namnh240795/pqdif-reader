@@ -1,0 +1,205 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{f2e06127-293c-49df-a0fc-1adc800272e9}</UniqueIdentifier>
+      <Extensions>*.cpp</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{b49a77f4-f96e-4335-86c9-5ff4f2cca9f2}</UniqueIdentifier>
+      <Extensions>*.h</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="el_base.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="el_coll.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="el_scal.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="el_vect.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pcn_base.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pcn_flat.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pqbytearray.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pqdfacty.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pqdinfo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pqdsupport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pqptrarray.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="proc_bas.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="proc_not.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="proc_zlib.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rec_base.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rec_container.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rec_datasource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rec_general.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rec_observ.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rec_settings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ser_alloc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ser_cont_el.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ser_iter_el.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="str_base.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="str_chnk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="str_flat.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="el_base.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="el_coll.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="el_scal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="el_vect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pcn_base.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pcn_flat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqbytearray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqdfacty.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PQDIF_classes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqdif_custom_1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqdif_custom_2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqdif_id.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqdif_lg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqdif_ph.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqdinfo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqdsupport.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pqptrarray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="proc_bas.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="proc_not.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="proc_zlib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rec_base.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rec_container.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rec_datasource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rec_general.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rec_observ.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rec_settings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ser_alloc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ser_cont_el.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ser_iter_el.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="str_base.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="str_chnk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="str_flat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zconf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="zlib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="name_id.inc">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="name_tag.inc">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>

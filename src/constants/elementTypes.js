@@ -1,0 +1,5 @@
+'use strict';
+
+exports.ID_ELEMENT_TYPE_COLLECTION = 1;
+exports.ID_ELEMENT_TYPE_SCALAR = 2;
+exports.ID_ELEMENT_TYPE_VECTOR = 3;

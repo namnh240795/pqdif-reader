@@ -1,0 +1,882 @@
+﻿/*
+**  Class:          PQDIF.Examples.Writer
+**  Description:	Creates Example PQDIF Files
+**
+** --------------------------------------------------------------------------
+**
+** Copyright 2023 PQDIF Authors
+**
+** Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+** either express or implied. See the License for the specific language governing permissions and limitations under the License.
+**
+** See the LICENSE file distributed with this work for copyright and licensing information, the AUTHORS file for a list of
+** copyright holders, and the CONTRIBUTORS file for the list of contributors.
+**
+** SPDX - License - Identifier: Apache - 2.0
+*/
+
+
+/// <summary>
+/// Creates Example PQDIF Files
+/// </summary>
+namespace PQDIF.Examples
+{
+    // Contains fundamental classes and base classes that define commonly-used value and reference data types, events and event handlers, interfaces, attributes, and processing exceptions
+    using System;
+
+    // Defines IEEE PQDIF methods and data types
+    using PQDIFNet;
+
+    // Defines IEEE PQDIF IDs
+    using static PQDIFNet.Constants.Logical;
+
+    /// <summary>
+    /// Writes Example PQDIF Files
+    /// </summary>
+    public class Writer
+    {
+        /// <summary>
+        /// Creates a PQDIF file with observation events comprised of voltage and current waveform samples
+        /// </summary>
+        /// <param name="NewFileName">Name of New File to Create</param>
+        /// <returns><c>true</c> if the new PQDIF file was create; <c>false</c> otherwise.</returns>
+        public bool SaveExampleEventWaveforms(string NewFileName)
+        {
+            // Initialize the return value
+            bool SavedOK = true;
+
+            // Initalize a new PQDIFNet object
+            CPQDIFNet NewPqdifFile = null;
+
+            try
+            {
+
+                // Define constants for the example waveform that we will create later.
+                DateTime DateTimeSettings = new DateTime(2022, 6, 1, 0, 0, 0, DateTimeKind.Utc); // When did the monitor settings take effect?
+                DateTime DateTimeCreated = new DateTime(2022, 7, 15, 0, 0, 0, DateTimeKind.Utc); // When was the PQDIF file created?
+                const double NominalVoltage = 13279.0561914; // 23kV line-line
+                const double NominalFrequency = 60; // System Frequency in Hertz
+                const double SQRT2 = 1.41421356237; // Ratio of the positive peak value of a sinusoidal waveform to its rms value.
+
+                // Create a new PQDIF file.
+                NewPqdifFile = new CPQDIFNet
+                {
+                    FlatFileName = NewFileName,
+                };
+
+                // Initialize the PQDIF record indexs.
+                int RecIndex = 0;
+
+                // Create a container record                        
+                NewPqdifFile.RecordCreateContainer3(NewFileName, DateTimeCreated.ToOADate(), 1, 5, 1, 5);
+
+                // Create a basic container record.
+                NewPqdifFile.ContainerSetInfo("English", "Example PQDIF File with Observation Events with Waveforms Samples", "Example PQDIF File", "PQDIF Authors", "", "", "", "", "", "", "Copyright 2023 PQDIF Authors", "", "");
+
+                // Set the compression style
+                NewPqdifFile.CompressionStyle = ID_COMP_STYLE_RECORDLEVEL;
+                NewPqdifFile.CompressionAlgorithm = ID_COMP_ALG_ZLIB;
+
+                // Increment the PQDIF record index
+                RecIndex++;
+
+
+                // ***************************************
+                // *** Create a new data source record ***
+                // ***************************************
+                int DataSourceIdx = NewPqdifFile.RecordCreateDataSource2(RecIndex, ID_DS_TYPE_MEASURE, ID_VENDOR_IEEE, ID_EQUIP_NONE, "", "", "Power Quality Instrument 1", "", "", "");
+
+                // Get a handle to the new data source record
+                IntPtr DataSourcePtr = new IntPtr();
+                NewPqdifFile.RecordRequestDataSource2(DataSourceIdx, ref DataSourcePtr);
+
+                // Add channel definitions for waveforms for three voltages and three currents
+                int ChannelDefnIdxVa = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V Waveform A", ID_PHASE_AN, ID_QM_VOLTAGE, ID_QT_WAVEFORM);
+                int ChannelDefnIdxVb = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V Waveform B", ID_PHASE_BN, ID_QM_VOLTAGE, ID_QT_WAVEFORM);
+                int ChannelDefnIdxVc = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V Waveform C", ID_PHASE_CN, ID_QM_VOLTAGE, ID_QT_WAVEFORM);
+                int ChannelDefnIdxIa = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I Waveform A", ID_PHASE_AN, ID_QM_CURRENT, ID_QT_WAVEFORM);
+                int ChannelDefnIdxIb = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I Waveform B", ID_PHASE_BN, ID_QM_CURRENT, ID_QT_WAVEFORM);
+                int ChannelDefnIdxIc = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I Waveform C", ID_PHASE_CN, ID_QM_CURRENT, ID_QT_WAVEFORM);
+
+                // Add series definitions for each voltage and current channel
+                int SeriesDefnIdxVaTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVa, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVaSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVa, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVbTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVb, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVbSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVb, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVcTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVc, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVcSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVc, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIaTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIa, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIaSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIa, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIbTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIb, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIbSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIb, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIcTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIc, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIcSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIc, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+
+                // Add a nominal voltage to each voltage waveform channel definition record. This is needed for PQDIF reader applications that will normalize voltage to per unit.
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVa, SeriesDefnIdxVaSamples, SQRT2 * NominalVoltage);
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVb, SeriesDefnIdxVbSamples, SQRT2 * NominalVoltage);
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVc, SeriesDefnIdxVcSamples, SQRT2 * NominalVoltage);
+
+                // Release the data source pointer
+                NewPqdifFile.RecordReleaseDataSource2(DataSourcePtr);
+
+                // Increment the PQDIF record index
+                RecIndex++;
+
+
+                // ********************************************
+                // *** Create a new monitor settings record ***
+                // ********************************************
+                int SettingsIdx = NewPqdifFile.RecordCreateSettings2(RecIndex);
+
+                // Get the handle to the new monitor settings record
+                IntPtr SettingsPtr = new IntPtr();
+                NewPqdifFile.RecordRequestSettings2(SettingsIdx, ref SettingsPtr);
+
+                // Set the effective time, installed time, calibration settings, and tranducer settings.
+                NewPqdifFile.SettingsSetEffective(SettingsPtr, DateTimeSettings.ToOADate());
+                NewPqdifFile.SettingsSetInstalled(SettingsPtr, DateTimeSettings.ToOADate());
+                NewPqdifFile.SettingsSetUseCalibration(SettingsPtr, false);
+                NewPqdifFile.SettingsSetUseTransducer(SettingsPtr, false);
+
+                // Add the nominal frequency.
+                NewPqdifFile.SettingsSetNominalFrequency(SettingsPtr, NominalFrequency);
+
+                // For tagTriggerMethodID = ID_TRIGGER_METH_EXTERNAL, we do not need a channel trigger index.
+                uint[] ChannelTriggerIdx = new uint[0];
+
+                // For tagTriggerMethodID = ID_TRIGGER_METH_CHANNEL, add one or more channels to ChannelTriggerIdx.
+                //uint[] ChannelTriggerIdx = new uint[1];
+                //ChannelTriggerIdx[0] = (uint)NewPqdifFile.SettingsAddChannel2(SettingsPtr, ChannelDefnIdxVa, ID_TRIGGER_METH_CHANNEL);
+
+                // Release the monitor settings pointer.
+                NewPqdifFile.RecordReleaseSettings2(SettingsPtr);
+
+                // Increment the PQDIF record index
+                RecIndex++;
+
+
+                // *******************************************
+                // *** Create multiple observation records ***
+                // *******************************************
+
+                // For each observation event to create...              
+                for (int EventIndex = 0; EventIndex < 3; EventIndex++)
+                {
+
+                    // Initialize arrays for the waveform samples.
+                    string ObservationName = "";
+                    DateTime ObservationStartTime = new DateTime();
+                    double[] SampleTime = null;
+                    double[] Va = null;
+                    double[] Vb = null;
+                    double[] Vc = null;
+                    double[] Ia = null;
+                    double[] Ib = null;
+                    double[] Ic = null;
+
+                    // Get the waveform samples for the current event.
+                    GetExampleEventWaveforms(EventIndex, ref ObservationName, ref ObservationStartTime, ref SampleTime, ref Va, ref Vb, ref Vc, ref Ia, ref Ib, ref Ic);
+
+                    // Create the new observation event record
+                    int ObservationIdx = NewPqdifFile.RecordCreateObservation2(RecIndex,
+                                                                               ObservationName,
+                                                                               DateTimeCreated.ToOADate(),
+                                                                               ObservationStartTime.ToOADate(),
+                                                                               ID_TRIGGER_METH_EXTERNAL,
+                                                                               DateTimeCreated.ToOADate(),
+                                                                               ChannelTriggerIdx);
+
+                    // Get a handle to the new observation event record
+                    IntPtr ObservationPtr = new IntPtr();
+                    NewPqdifFile.RecordRequestObservation2(RecIndex, ref ObservationPtr);
+
+                    // Add channel instances and series instances.                    
+                    int ChannelInstanceIdxVa = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVa);
+                    int ChannelInstanceIdxVb = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVb);
+                    int ChannelInstanceIdxVc = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVc);
+                    int ChannelInstanceIdxIa = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIa);
+                    int ChannelInstanceIdxIb = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIb);
+                    int ChannelInstanceIdxIc = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIc);
+
+                    // Add the series instance for timestamps. 
+                    int idxSeriesInstanceIdxVa = NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVa, SampleTime);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxVb, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxVc, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIa, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIb, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIc, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+
+                    // Add the series instance for voltage and current samples
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVa, Va);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVb, Vb);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVc, Vc);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIa, Ia);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIb, Ib);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIc, Ic);
+
+                    // Release the observation record's pointer
+                    NewPqdifFile.RecordReleaseObservation2(ObservationPtr);
+
+                    // Increment the PQDIF record index
+                    RecIndex++;
+
+                } // For each observation event to create            
+
+            } // try
+
+
+            // Run this code on exit.
+            finally
+            {
+
+                // Clean Up.
+                try
+                {
+                    if (NewPqdifFile != null)
+                    {
+                        // Close the new PQDIF file and dispose of its PQDIFNet object.
+                        NewPqdifFile.WriteNew();
+                        NewPqdifFile.Close();
+                        NewPqdifFile.Dispose();
+                    }
+
+                }
+                catch
+                {
+                    // Ignore errors during clean up.
+                }
+
+            } // finally
+
+            // Return the success flag.
+            return SavedOK;
+
+        } // SaveExampleEventWaveforms
+
+
+        /// <summary>
+        /// Creates a PQDIF file with observation events comprised of voltage and current rms values
+        /// </summary>
+        /// <param name="NewFileName">Name of New File to Create</param>
+        /// <returns><c>true</c> if the new PQDIF file was create; <c>false</c> otherwise.</returns>
+        public bool SaveExampleEventRms(string NewFileName)
+        {
+            // Initialize the return value
+            bool SavedOK = true;
+
+            // Initalize a new PQDIFNet object
+            CPQDIFNet NewPqdifFile = null;
+
+            try
+            {
+
+                // Define constants for the example waveform that we will create later.
+                DateTime DateTimeSettings = new DateTime(2022, 6, 1, 0, 0, 0, DateTimeKind.Utc); // When did the monitor settings take effect?
+                DateTime DateTimeCreated = new DateTime(2022, 7, 15, 0, 0, 0, DateTimeKind.Utc); // When was the PQDIF file created?
+                const double NominalVoltage = 13279.0561914; // 23kV line-line
+                const double NominalFrequency = 60; // System Frequency in Hertz
+
+                // Create a new PQDIF file.
+                NewPqdifFile = new CPQDIFNet
+                {
+                    FlatFileName = NewFileName,
+                };
+
+                // Initialize the PQDIF record indexs.
+                int RecIndex = 0;
+
+                // Create a container record                        
+                NewPqdifFile.RecordCreateContainer3(NewFileName, DateTimeCreated.ToOADate(), 1, 5, 1, 5);
+
+                // Create a basic container record.
+                NewPqdifFile.ContainerSetInfo("English", "Example PQDIF File with Observation Events with RMS Values", "Example PQDIF File", "PQDIF Authors", "", "", "", "", "", "", "Copyright 2023 PQDIF Authors", "", "");
+
+                // Set the compression style
+                NewPqdifFile.CompressionStyle = ID_COMP_STYLE_RECORDLEVEL;
+                NewPqdifFile.CompressionAlgorithm = ID_COMP_ALG_ZLIB;
+
+                // Increment the PQDIF record index
+                RecIndex++;
+
+
+                // ***************************************
+                // *** Create a new data source record ***
+                // ***************************************
+                int DataSourceIdx = NewPqdifFile.RecordCreateDataSource2(RecIndex, ID_DS_TYPE_MEASURE, ID_VENDOR_IEEE, ID_EQUIP_NONE, "", "", "Power Quality Instrument 2", "", "", "");
+
+                // Get a handle to the new data source record
+                IntPtr DataSourcePtr = new IntPtr();
+                NewPqdifFile.RecordRequestDataSource2(DataSourceIdx, ref DataSourcePtr);
+
+                // Add channel definitions for rms values for three voltages and three currents
+                int ChannelDefnIdxVaRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V RMS A", ID_PHASE_AN, ID_QM_VOLTAGE, ID_QT_PHASOR);
+                int ChannelDefnIdxVbRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V RMS B", ID_PHASE_BN, ID_QM_VOLTAGE, ID_QT_PHASOR);
+                int ChannelDefnIdxVcRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V RMS C", ID_PHASE_CN, ID_QM_VOLTAGE, ID_QT_PHASOR);
+                int ChannelDefnIdxIaRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I RMS A", ID_PHASE_AN, ID_QM_CURRENT, ID_QT_PHASOR);
+                int ChannelDefnIdxIbRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I RMS B", ID_PHASE_BN, ID_QM_CURRENT, ID_QT_PHASOR);
+                int ChannelDefnIdxIcRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I RMS C", ID_PHASE_CN, ID_QM_CURRENT, ID_QT_PHASOR);
+
+                // Add series definitions for each voltage and current channel
+                int SeriesDefnIdxVaTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVaRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVaSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVaRMS, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVbTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVbRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVbSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVbRMS, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVcTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVcRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVcSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVcRMS, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIaTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIaRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIaSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIaRMS, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIbTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIbRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIbSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIbRMS, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIcTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIcRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIcSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIcRMS, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+
+                // Add a nominal voltage to each voltage waveform channel definition record. This is needed for PQDIF reader applications that will normalize voltage to per unit.
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVaRMS, SeriesDefnIdxVaSamplesRMS, NominalVoltage);
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVbRMS, SeriesDefnIdxVbSamplesRMS, NominalVoltage);
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVcRMS, SeriesDefnIdxVcSamplesRMS, NominalVoltage);
+
+                // Release the data source pointer
+                NewPqdifFile.RecordReleaseDataSource2(DataSourcePtr);
+
+                // Increment the PQDIF record index
+                RecIndex++;
+
+
+                // ********************************************
+                // *** Create a new monitor settings record ***
+                // ********************************************
+                int SettingsIdx = NewPqdifFile.RecordCreateSettings2(RecIndex);
+
+                // Get the handle to the new monitor settings record
+                IntPtr SettingsPtr = new IntPtr();
+                NewPqdifFile.RecordRequestSettings2(SettingsIdx, ref SettingsPtr);
+
+                // Set the effective time, installed time, calibration settings, and tranducer settings.
+                NewPqdifFile.SettingsSetEffective(SettingsPtr, DateTimeSettings.ToOADate());
+                NewPqdifFile.SettingsSetInstalled(SettingsPtr, DateTimeSettings.ToOADate());
+                NewPqdifFile.SettingsSetUseCalibration(SettingsPtr, false);
+                NewPqdifFile.SettingsSetUseTransducer(SettingsPtr, false);
+
+                // Add the nominal frequency.
+                NewPqdifFile.SettingsSetNominalFrequency(SettingsPtr, NominalFrequency);
+
+                // For tagTriggerMethodID = ID_TRIGGER_METH_EXTERNAL, we do not need a channel trigger index.
+                uint[] ChannelTriggerIdx = new uint[0];
+
+                // For tagTriggerMethodID = ID_TRIGGER_METH_CHANNEL, add one or more channels to ChannelTriggerIdx.
+                //uint[] ChannelTriggerIdx = new uint[1];
+                //ChannelTriggerIdx[0] = (uint)NewPqdifFile.SettingsAddChannel2(SettingsPtr, ChannelDefnIdxVa, ID_TRIGGER_METH_CHANNEL);
+
+                // Release the monitor settings pointer.
+                NewPqdifFile.RecordReleaseSettings2(SettingsPtr);
+
+                // Increment the PQDIF record index
+                RecIndex++;
+
+
+                // *******************************************
+                // *** Create multiple observation records ***
+                // *******************************************
+
+                // For each observation event to create...              
+                for (int EventIndex = 0; EventIndex < 3; EventIndex++)
+                {
+
+                    // Initialize arrays for the rms values samples.
+                    string ObservationName = "";
+                    DateTime ObservationStartTime = new DateTime();
+                    double[] SampleTimeRMS = null;
+                    double[] VaRMS = null;
+                    double[] VbRMS = null;
+                    double[] VcRMS = null;
+                    double[] IaRMS = null;
+                    double[] IbRMS = null;
+                    double[] IcRMS = null;
+
+                    // Get the rms values for the current event.
+                    GetExampleEventRms(EventIndex, ref ObservationName, ref ObservationStartTime, ref SampleTimeRMS, ref VaRMS, ref VbRMS, ref VcRMS, ref IaRMS, ref IbRMS, ref IcRMS);
+
+                    // Create the new observation event record
+                    int ObservationIdx = NewPqdifFile.RecordCreateObservation2(RecIndex,
+                                                                               ObservationName,
+                                                                               DateTimeCreated.ToOADate(),
+                                                                               ObservationStartTime.ToOADate(),
+                                                                               ID_TRIGGER_METH_EXTERNAL,
+                                                                               DateTimeCreated.ToOADate(),
+                                                                               ChannelTriggerIdx);
+
+                    // Get a handle to the new observation event record
+                    IntPtr ObservationPtr = new IntPtr();
+                    NewPqdifFile.RecordRequestObservation2(RecIndex, ref ObservationPtr);
+
+                    // Add channel instances and series instances.                    
+                    int ChannelInstanceIdxVaRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVaRMS);
+                    int ChannelInstanceIdxVbRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVbRMS);
+                    int ChannelInstanceIdxVcRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVcRMS);
+                    int ChannelInstanceIdxIaRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIaRMS);
+                    int ChannelInstanceIdxIbRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIbRMS);
+                    int ChannelInstanceIdxIcRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIcRMS);
+
+                    // Add the series instance for timestamps. 
+                    int idxSeriesInstanceIdxVaRMS = NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVaRMS, SampleTimeRMS);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxVbRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxVcRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIaRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIbRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIcRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+
+                    // Add the series instance for rms voltage and current samples
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVaRMS, VaRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVbRMS, VbRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVcRMS, VcRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIaRMS, IaRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIbRMS, IbRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIcRMS, IcRMS);
+
+                    // Release the observation record's pointer
+                    NewPqdifFile.RecordReleaseObservation2(ObservationPtr);
+
+                    // Increment the PQDIF record index
+                    RecIndex++;
+
+                } // For each observation event to create            
+
+            } // try
+
+
+            // Run this code on exit.
+            finally
+            {
+
+                // Clean Up.
+                try
+                {
+                    if (NewPqdifFile != null)
+                    {
+                        // Close the new PQDIF file and dispose of its PQDIFNet object.
+                        NewPqdifFile.WriteNew();
+                        NewPqdifFile.Close();
+                        NewPqdifFile.Dispose();
+                    }
+
+                }
+                catch
+                {
+                    // Ignore errors during clean up.
+                }
+
+            } // finally
+
+            // Return the success flag.
+            return SavedOK;
+
+        } // SaveExampleEventRms
+
+
+
+        /// <summary>
+        /// Creates a PQDIF file with observation events comprised of voltage and current waveform samples and voltage and current rms values
+        /// </summary>
+        /// <param name="NewFileName">Name of New File to Create</param>
+        /// <returns><c>true</c> if the new PQDIF file was create; <c>false</c> otherwise.</returns>
+        public bool SaveExampleEventWaveformsRms(string NewFileName)
+        {
+            // Initialize the return value
+            bool SavedOK = true;
+
+            // Initalize a new PQDIFNet object
+            CPQDIFNet NewPqdifFile = null;
+
+            try
+            {
+
+                // Define constants for the example waveform that we will create later.
+                DateTime DateTimeSettings = new DateTime(2022, 6, 1, 0, 0, 0, DateTimeKind.Utc); // When did the monitor settings take effect?
+                DateTime DateTimeCreated = new DateTime(2022, 7, 15, 0, 0, 0, DateTimeKind.Utc); // When was the PQDIF file created?
+                const double NominalVoltage = 13279.0561914; // 23kV line-line
+                const double NominalFrequency = 60; // System Frequency in Hertz
+                const double SQRT2 = 1.41421356237; // Ratio of the positive peak value of a sinusoidal waveform to its rms value.
+
+                // Create a new PQDIF file.
+                NewPqdifFile = new CPQDIFNet
+                {
+                    FlatFileName = NewFileName,
+                };
+
+                // Initialize the PQDIF record indexs.
+                int RecIndex = 0;
+
+                // Create a container record                        
+                NewPqdifFile.RecordCreateContainer3(NewFileName, DateTimeCreated.ToOADate(), 1, 5, 1, 5);
+
+                // Create a basic container record.
+                NewPqdifFile.ContainerSetInfo("English", "Example PQDIF File with Observation Events with Waveforms Samples and RMS Values", "Example PQDIF File", "PQDIF Authors", "", "", "", "", "", "", "Copyright 2023 PQDIF Authors", "", "");
+
+                // Set the compression style
+                NewPqdifFile.CompressionStyle = ID_COMP_STYLE_RECORDLEVEL;
+                NewPqdifFile.CompressionAlgorithm = ID_COMP_ALG_ZLIB;
+
+                // Increment the PQDIF record index
+                RecIndex++;
+
+
+                // ***************************************
+                // *** Create a new data source record ***
+                // ***************************************
+                int DataSourceIdx = NewPqdifFile.RecordCreateDataSource2(RecIndex, ID_DS_TYPE_MEASURE, ID_VENDOR_IEEE, ID_EQUIP_NONE, "", "", "Power Quality Instrument 3", "", "", "");
+
+                // Get a handle to the new data source record
+                IntPtr DataSourcePtr = new IntPtr();
+                NewPqdifFile.RecordRequestDataSource2(DataSourceIdx, ref DataSourcePtr);
+
+                // Add channel definitions for waveforms for three voltages and three currents
+                int ChannelDefnIdxVa = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V Waveform A", ID_PHASE_AN, ID_QM_VOLTAGE, ID_QT_WAVEFORM);
+                int ChannelDefnIdxVb = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V Waveform B", ID_PHASE_BN, ID_QM_VOLTAGE, ID_QT_WAVEFORM);
+                int ChannelDefnIdxVc = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V Waveform C", ID_PHASE_CN, ID_QM_VOLTAGE, ID_QT_WAVEFORM);
+                int ChannelDefnIdxIa = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I Waveform A", ID_PHASE_AN, ID_QM_CURRENT, ID_QT_WAVEFORM);
+                int ChannelDefnIdxIb = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I Waveform B", ID_PHASE_BN, ID_QM_CURRENT, ID_QT_WAVEFORM);
+                int ChannelDefnIdxIc = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I Waveform C", ID_PHASE_CN, ID_QM_CURRENT, ID_QT_WAVEFORM);
+
+                // Add series definitions for each voltage and current waveform channel
+                int SeriesDefnIdxVaTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVa, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVaSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVa, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVbTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVb, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVbSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVb, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVcTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVc, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVcSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVc, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIaTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIa, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIaSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIa, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIbTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIb, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIbSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIb, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIcTime = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIc, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIcSamples = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIc, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_INSTANTANEOUS, ID_SERIES_METHOD_VALUES);
+
+                // Add channel definitions for rms values for three voltages and three currents
+                int ChannelDefnIdxVaRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V RMS A", ID_PHASE_AN, ID_QM_VOLTAGE, ID_QT_PHASOR);
+                int ChannelDefnIdxVbRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V RMS B", ID_PHASE_BN, ID_QM_VOLTAGE, ID_QT_PHASOR);
+                int ChannelDefnIdxVcRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "V RMS C", ID_PHASE_CN, ID_QM_VOLTAGE, ID_QT_PHASOR);
+                int ChannelDefnIdxIaRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I RMS A", ID_PHASE_AN, ID_QM_CURRENT, ID_QT_PHASOR);
+                int ChannelDefnIdxIbRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I RMS B", ID_PHASE_BN, ID_QM_CURRENT, ID_QT_PHASOR);
+                int ChannelDefnIdxIcRMS = NewPqdifFile.DataSourceAddChannelDefn3(DataSourcePtr, "I RMS C", ID_PHASE_CN, ID_QM_CURRENT, ID_QT_PHASOR);
+
+                // Add series definitions for each rms voltage and current channel
+                int SeriesDefnIdxVaTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVaRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVaSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVaRMS, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVbTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVbRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVbSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVbRMS, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVcTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVcRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxVcSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxVcRMS, ID_QU_VOLTS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIaTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIaRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIaSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIaRMS, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIbTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIbRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIbSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIbRMS, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIcTimeRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIcRMS, ID_QU_SECONDS, ID_SERIES_VALUE_TYPE_TIME, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+                int SeriesDefnIdxIcSamplesRMS = NewPqdifFile.DataSourceAddSeriesDefn2(DataSourcePtr, ChannelDefnIdxIcRMS, ID_QU_AMPS, ID_SERIES_VALUE_TYPE_VAL, ID_QC_RMS, ID_SERIES_METHOD_VALUES);
+
+                // Add a nominal voltage to each voltage waveform channel definition record. This is needed for PQDIF reader applications that will normalize voltage to per unit.
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVa, SeriesDefnIdxVaSamples, SQRT2 * NominalVoltage);
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVb, SeriesDefnIdxVbSamples, SQRT2 * NominalVoltage);
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVc, SeriesDefnIdxVcSamples, SQRT2 * NominalVoltage);
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVaRMS, SeriesDefnIdxVaSamplesRMS, NominalVoltage);
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVbRMS, SeriesDefnIdxVbSamplesRMS, NominalVoltage);
+                NewPqdifFile.DataSourceSetSeriesDefnNominal(DataSourcePtr, ChannelDefnIdxVcRMS, SeriesDefnIdxVcSamplesRMS, NominalVoltage);
+
+                // Release the data source pointer
+                NewPqdifFile.RecordReleaseDataSource2(DataSourcePtr);
+
+                // Increment the PQDIF record index
+                RecIndex++;
+
+
+                // ********************************************
+                // *** Create a new monitor settings record ***
+                // ********************************************
+                int SettingsIdx = NewPqdifFile.RecordCreateSettings2(RecIndex);
+
+                // Get the handle to the new monitor settings record
+                IntPtr SettingsPtr = new IntPtr();
+                NewPqdifFile.RecordRequestSettings2(SettingsIdx, ref SettingsPtr);
+
+                // Set the effective time, installed time, calibration settings, and tranducer settings.
+                NewPqdifFile.SettingsSetEffective(SettingsPtr, DateTimeSettings.ToOADate());
+                NewPqdifFile.SettingsSetInstalled(SettingsPtr, DateTimeSettings.ToOADate());
+                NewPqdifFile.SettingsSetUseCalibration(SettingsPtr, false);
+                NewPqdifFile.SettingsSetUseTransducer(SettingsPtr, false);
+
+                // Add the nominal frequency.
+                NewPqdifFile.SettingsSetNominalFrequency(SettingsPtr, NominalFrequency);
+
+                // For tagTriggerMethodID = ID_TRIGGER_METH_EXTERNAL, we do not need a channel trigger index.
+                uint[] ChannelTriggerIdx = new uint[0];
+
+                // For tagTriggerMethodID = ID_TRIGGER_METH_CHANNEL, add one or more channels to ChannelTriggerIdx.
+                //uint[] ChannelTriggerIdx = new uint[1];
+                //ChannelTriggerIdx[0] = (uint)NewPqdifFile.SettingsAddChannel2(SettingsPtr, ChannelDefnIdxVa, ID_TRIGGER_METH_CHANNEL);
+
+                // Release the monitor settings pointer.
+                NewPqdifFile.RecordReleaseSettings2(SettingsPtr);
+
+                // Increment the PQDIF record index
+                RecIndex++;
+
+
+                // *******************************************
+                // *** Create multiple observation records ***
+                // *******************************************
+
+                // For each observation event to create...              
+                for (int EventIndex = 0; EventIndex < 3; EventIndex++)
+                {
+
+                    // Initialize arrays for the waveform samples.
+                    string ObservationName = "";
+                    DateTime ObservationStartTime = new DateTime();
+                    double[] SampleTime = null;
+                    double[] Va = null;
+                    double[] Vb = null;
+                    double[] Vc = null;
+                    double[] Ia = null;
+                    double[] Ib = null;
+                    double[] Ic = null;
+
+                    // Get the waveform samples for the current event.
+                    GetExampleEventWaveforms(EventIndex, ref ObservationName, ref ObservationStartTime, ref SampleTime, ref Va, ref Vb, ref Vc, ref Ia, ref Ib, ref Ic);
+
+                    // Create the new observation event record
+                    int ObservationIdx = NewPqdifFile.RecordCreateObservation2(RecIndex,
+                                                                               ObservationName,
+                                                                               DateTimeCreated.ToOADate(),
+                                                                               ObservationStartTime.ToOADate(),
+                                                                               ID_TRIGGER_METH_EXTERNAL,
+                                                                               DateTimeCreated.ToOADate(),
+                                                                               ChannelTriggerIdx);
+
+                    // Get a handle to the new observation event record
+                    IntPtr ObservationPtr = new IntPtr();
+                    NewPqdifFile.RecordRequestObservation2(RecIndex, ref ObservationPtr);
+
+                    // Add channel instances and series instances.
+                    int ChannelInstanceIdxVa = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVa);
+                    int ChannelInstanceIdxVb = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVb);
+                    int ChannelInstanceIdxVc = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVc);
+                    int ChannelInstanceIdxIa = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIa);
+                    int ChannelInstanceIdxIb = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIb);
+                    int ChannelInstanceIdxIc = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIc);
+
+                    // Add the series instance for timestamps. 
+                    int idxSeriesInstanceIdxVa = NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVa, SampleTime);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxVb, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxVc, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIa, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIb, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIc, ChannelInstanceIdxVa, idxSeriesInstanceIdxVa);
+
+                    // Add the series instance for voltage and current samples
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVa, Va);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVb, Vb);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVc, Vc);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIa, Ia);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIb, Ib);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIc, Ic);
+
+                    // Get the rms voltage and current samples for the current event.
+                    double[] SampleTimeRMS = null;
+                    double[] VaRMS = null;
+                    double[] VbRMS = null;
+                    double[] VcRMS = null;
+                    double[] IaRMS = null;
+                    double[] IbRMS = null;
+                    double[] IcRMS = null;
+                    GetExampleEventRms(EventIndex, ref ObservationName, ref ObservationStartTime, ref SampleTimeRMS, ref VaRMS, ref VbRMS, ref VcRMS, ref IaRMS, ref IbRMS, ref IcRMS);
+
+                    // Add channel instances and series instances.
+                    int ChannelInstanceIdxVaRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVaRMS);
+                    int ChannelInstanceIdxVbRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVbRMS);
+                    int ChannelInstanceIdxVcRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxVcRMS);
+                    int ChannelInstanceIdxIaRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIaRMS);
+                    int ChannelInstanceIdxIbRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIbRMS);
+                    int ChannelInstanceIdxIcRMS = NewPqdifFile.ObservationAddChannel2(ObservationPtr, ChannelDefnIdxIcRMS);
+
+                    // Add the series instance for timestamps. 
+                    int idxSeriesInstanceIdxVaRMS = NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVaRMS, SampleTime);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxVbRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxVcRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIaRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIbRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+                    NewPqdifFile.ObservationAddSeriesShared(ObservationPtr, ChannelInstanceIdxIcRMS, ChannelInstanceIdxVaRMS, idxSeriesInstanceIdxVaRMS);
+
+                    // Add the series instance for voltage and current samples
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVaRMS, VaRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVbRMS, VbRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxVcRMS, VcRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIaRMS, IaRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIbRMS, IbRMS);
+                    NewPqdifFile.ObservationAddSeriesData(ObservationPtr, ChannelInstanceIdxIcRMS, IcRMS);
+
+                    // Release the observation record's pointer
+                    NewPqdifFile.RecordReleaseObservation2(ObservationPtr);
+
+                    // Increment the PQDIF record index
+                    RecIndex++;
+
+                } // For each observation event to create            
+
+            } // try
+
+
+            // Run this code on exit.
+            finally
+            {
+
+                // Clean Up.
+                try
+                {
+                    if (NewPqdifFile != null)
+                    {
+                        // Close the new PQDIF file and dispose of its PQDIFNet object.
+                        NewPqdifFile.WriteNew();
+                        NewPqdifFile.Close();
+                        NewPqdifFile.Dispose();
+                    }
+
+                }
+                catch
+                {
+                    // Ignore errors during clean up.
+                }
+
+            } // finally
+
+            // Return the success flag.
+            return SavedOK;
+
+        } // SaveExampleEventWaveformsRms
+
+
+        /// <summary>
+        /// Returns example voltage and current waveform samples for different cases selected by <paramref name="EventIndex"/>
+        /// </summary>
+        /// <param name="EventIndex">Specifies which example event to return</param>
+        /// <param name="ObservationName">Returns the Name of Observation</param>
+        /// <param name="ObservationStartTime">Returns the Observation Start Time in UTC</param>
+        /// <param name="SampleTime">Array of Sample Time Values (seconds) relative to <paramref name="ObservationStartTime"/></param>
+        /// <param name="Va">Phase A Voltage at <paramref name="SampleTime"/> (volts)</param>
+        /// <param name="Vb">Phase B Voltage at <paramref name="SampleTime"/> (volts)</param>
+        /// <param name="Vc">Phase C Voltage at <paramref name="SampleTime"/> (volts)</param>
+        /// <param name="Ia">Phase A Current at <paramref name="SampleTime"/> (amps)</param>
+        /// <param name="Ib">Phase B Current at <paramref name="SampleTime"/> (amps)</param>
+        /// <param name="Ic">Phase C Current at <paramref name="SampleTime"/> (amps)</param>
+        private void GetExampleEventWaveforms(int EventIndex, ref string ObservationName, ref DateTime ObservationStartTime, ref double[] SampleTime, ref double[] Va, ref double[] Vb, ref double[] Vc, ref double[] Ia, ref double[] Ib, ref double[] Ic)
+        {
+            // Determine which voltage and current waveform samples to return
+            switch (EventIndex)
+            {
+                case 0:
+                    ObservationName = "Single-Phase Voltage Sag/Fault";
+                    ObservationStartTime = new DateTime(2022, 7, 1, 12, 34, 56, 145, DateTimeKind.Utc);
+                    SampleTime = new double[] { -0.016666667, -0.015625, -0.014583333, -0.013541667, -0.0125, -0.011458333, -0.010416667, -0.009375, -0.008333333, -0.007291667, -0.00625, -0.005208333, -0.004166667, -0.003125, -0.002083333, -0.001041667, -3.46945E-18, 0.001041667, 0.002083333, 0.003125, 0.004166667, 0.005208333, 0.00625, 0.007291667, 0.008333333, 0.009375, 0.010416667, 0.011458333, 0.0125, 0.013541667, 0.014583333, 0.015625, 0.016666667, 0.017708333, 0.01875, 0.019791667, 0.020833333, 0.021875, 0.022916667, 0.023958333, 0.025, 0.026041667, 0.027083333, 0.028125, 0.029166667, 0.030208333, 0.03125, 0.032291667, 0.033333333, 0.034375, 0.035416667, 0.036458333, 0.0375, 0.038541667, 0.039583333, 0.040625, 0.041666667, 0.042708333, 0.04375, 0.044791667, 0.045833333, 0.046875, 0.047916667, 0.048958333, 0.05, 0.051041667, 0.052083333, 0.053125, 0.054166667, 0.055208333, 0.05625, 0.057291667, 0.058333333, 0.059375, 0.060416667, 0.061458333, 0.0625, 0.063541667, 0.064583333, 0.065625, 0.066666667, 0.067708333, 0.06875, 0.069791667, 0.070833333, 0.071875, 0.072916667, 0.073958333, 0.075, 0.076041667, 0.077083333, 0.078125, 0.079166667, 0.080208333, 0.08125, 0.082291667 };
+                    Va = new double[] { 14719.87402, 18352.21875, 19484.51758, 18349.93359, 13238.58984, 5995.998047, -1769.310791, -8784.833984, -14777.02246, -18378.125, -19486.80273, -18356.0293, -13216.49316, -5953.327148, 1785.312378, 8797.025391, 14098.8623, 17714.44336, 18828.45508, 17679.39258, 12549.7627, 5298.788574, -2465.757813, -9472.899414, -15456.70605, -19033.42578, -19537.85547, -9088.100586, -7355.365234, -5262.976074, -1466.805908, 2966.376953, 6178.872559, 9121.62793, 10393.36816, 9927.799805, 8454.898438, 5120.486328, 1695.399048, -2631.106934, -6164.39502, -8024.380859, -10599.86328, -9730.447266, -8480.805664, -5442.040527, -1998.666016, 2181.540527, 5833.696777, 7936.753418, 10119.05566, 9564.336914, 8264.40332, 5190.587891, 1880.559448, -2525.954102, -5827.601074, -7751.593262, -10173.91797, -9483.567383, -8134.867676, -5254.594238, -1975.044678, 2335.459717, 6636.058594, 8956.279297, 11785.5, 11535.57129, 10650.91602, 8621.770508, 6288.597168, 1419.563354, -7505.474609, -16990.56641, -17719.77734, -17014.1875, -11880.74707, -5543.383301, 1824.173218, 8941.039063, 14025.71289, 17688.53711, 18876.45898, 17845.50391, 13175.3457, 6319.838379, -1336.507813, -8370.318359, -14348.79102, -18033.71289, -19038.75977, -17947.60938, -12944.4668, -5941.897461, 1655.014282, 8369.556641 };
+                    Vb = new double[] { -19073.81055, -15210.58691, -8304.026367, -662.1580811, 6687.111328, 13029.80859, 17654.24805, 19431.17773, 19082.95508, 15211.34863, 8296.407227, 646.9185791, -6684.825195, -13042, -17646.62695, -19414.41406, -19331.35938, -15438.41797, -8532.620117, -878.5596313, 6456.231934, 12795.88184, 17402.79492, 19159.91406, 18801.78516, 14905.03418, 8038.09668, 1734.259888, -3660.538086, -12727.30371, -18925.98828, -19796.16602, -20422.50977, -18964.08594, -11515.75977, -1205.447754, 4006.475586, 12148.96289, 18917.60547, 19753.49414, 20496.42188, 19055.52344, 11716.16016, 1676.349609, -4174.872559, -12283.83301, -18998.375, -20203.82227, -20729.58789, -19010.56641, -11676.53711, -1443.946655, 4185.540039, 12223.63672, 19207.91992, 19979.80273, 20792.83203, 19004.4707, 11482.99512, 1702.256836, -4243.450684, -12235.82813, -19095.14648, -20148.96094, -20480.41992, -18451.27539, -10877.22363, -1047.718506, 4965.042969, 13134.19922, 20322.69141, 21261.44727, 21371.17188, 17193.25195, 8105.912598, 1104.104858, -5947.231445, -12945.22949, -17888.9375, -19817.5, -19147.72266, -14807.50098, -8451.849609, -445.7566223, 6769.404785, 13323.16992, 17971.23047, 20019.42383, 19118.76758, 14644.43848, 8298.692383, 431.2790527, -6780.072266, -13330.02734, -17808.16797, -19809.11914 };
+                    Vc = new double[] { 3121.820313, -4458.328125, -11080.6709, -16401.55664, -19064.66797, -19357.26563, -16970.75391, -10564.8125, -3124.106201, 4474.32959, 11124.86621, 16403.08203, 19068.47656, 19348.88477, 16953.99023, 10528.2373, 2861.986084, -4705.208496, -11333.64746, -16636.24609, -19279.54492, -19563, -17149.05664, -10727.87598, -3285.645264, 4305.932617, 10996.85352, 17615.38672, 20481.18359, 20392.79297, 16784.07031, 9235.162109, 729.9740601, -6899.702637, -14337.36133, -18621.95898, -19990.46875, -19642.24609, -15670.82129, -9099.530273, -240.0227966, 6248.212402, 14517.1875, 18831.50195, 20072.00195, 19663.58203, 15435.37012, 8999.711914, 388.6083374, -6931.705566, -14616.24512, -18708.0625, -20063.61914, -19493.66016, -15346.98047, -9072.099609, -111.2486572, 6668.061523, 14516.42578, 18756.06641, 20146.67383, 19619.38672, 15353.07715, 8895.320313, 469.3778992, -6575.100586, -14178.1084, -18109.91016, -19723.01563, -18868.07813, -14084.38477, -7811.027344, -490.7132568, 5684.349121, 11186.58594, 16902.17578, 19736.73047, 19604.9082, 16044.95215, 10207.44531, 2676.825684, -4792.074219, -11348.125, -16659.86719, -19086.00195, -19335.16992, -16249.92383, -10119.81836, -2759.119141, 4664.82373, 11204.87305, 16668.25, 19101.24219, 19377.07813, 16467.84961, 10189.1582 };
+                    Ia = new double[] { 458.1124573, 570.0494385, 702.7155151, 640.5282593, 400.0710754, 234.2384949, 16.58325577, -254.9675598, -462.2582703, -578.3410645, -696.4967651, -634.3095703, -406.2897949, -228.0197754, -10.36453533, 254.9675598, 468.4769897, 578.3410645, 679.9135132, 640.5282593, 397.9981689, 236.3114014, 22.80197716, -248.7488403, -458.1124573, -572.1223755, -704.7883911, -1260.327515, -2495.780029, -2684.414551, -2417.009521, -1533.951172, -331.6651306, 1032.307739, 2342.38501, 3449.317383, 4168.616211, 4245.313477, 3826.586426, 2765.258057, 1434.45166, -118.1557007, -1596.138428, -2759.039307, -3567.473145, -3706.35791, -3312.505371, -2294.708008, -992.9224854, 530.6641846, 1944.386841, 3148.74585, 3944.742188, 4079.480957, 3666.972656, 2620.154541, 1289.348145, -254.9675598, -1749.533569, -2941.455078, -3770.61792, -3915.721436, -3511.504639, -2466.759277, -1125.588501, 420.8001404, 1809.647827, 2918.653076, 3540.525146, 3405.786377, 2582.842285, 1106.932373, -385.5606995, -858.1835327, -1003.286987, -1038.526489, -820.8712158, -592.8514404, -246.6759338, 130.5931396, 456.0395508, 681.9864502, 907.9332886, 907.9332886, 702.7155151, 474.6957092, 176.1970978, -140.9576721, -427.0188599, -619.7991943, -810.5066528, -802.2150269, -592.8514404, -408.3627014, -163.7596588, 172.0512848 };
+                    Ib = new double[] { -640.5282593, -424.9459534, -246.6759338, -68.40592957, 165.8325653, 389.7065125, 520.2996826, 611.5075684, 640.5282593, 433.2375793, 240.4572144, 70.47883606, -157.5409393, -393.8523254, -516.1538696, -617.7263184, -655.0386353, -429.0917664, -242.5301208, -70.47883606, 159.6138458, 395.9252319, 518.2267456, 619.7991943, 646.7470093, 422.8730469, 238.3843079, 176.1970978, 64.26011658, -433.2375793, -420.8001404, -644.6740723, -893.4229126, -756.611084, -375.196167, -375.196167, -271.5508118, 246.6759338, 339.9567566, 592.8514404, 866.4751587, 735.882019, 346.1754761, 302.6444397, 161.6867523, -325.4464111, -420.8001404, -665.4031372, -883.0584106, -756.611084, -373.1232605, -346.1754761, -234.2384949, 279.8424377, 362.758728, 599.0701294, 831.2357178, 696.4967651, 354.4671021, 342.0296631, 201.071991, -267.4049988, -360.6858215, -582.4868774, -793.9234009, -671.6218872, -350.3212891, -308.8631592, -159.6138458, 335.8109436, 449.8208313, 713.0800171, 907.9332886, 532.7371216, 261.1862793, 151.3222198, -155.4680328, -408.3627014, -532.7371216, -621.8721313, -584.5598145, -449.8208313, -281.9153442, -72.55175018, 153.3951263, 383.487793, 507.8622131, 605.2888794, 561.7578125, 404.2168884, 269.4779053, 95.35372162, -140.9576721, -364.8316345, -476.7686157, -592.8514404 };
+                    Ic = new double[] { 157.5409393, -80.84337616, -333.7380371, -520.2996826, -609.4346924, -698.5697021, -536.8829346, -298.4986267, -147.1764069, 103.6453552, 333.7380371, 507.8622131, 617.7263184, 690.2780762, 524.4454956, 302.6444397, 132.6660461, -99.49954224, -352.3941956, -514.0809326, -611.5075684, -690.2780762, -534.8099976, -313.0089722, -132.6660461, 87.06209564, 344.1025696, 617.7263184, 959.7559814, 1024.016113, 686.1322632, 350.3212891, 140.9576721, -172.0512848, -509.9351196, -601.1430664, -791.8504639, -959.7559814, -775.2672119, -507.8622131, -337.8838501, 2.072906971, 476.7686157, 536.8829346, 756.611084, 903.7874756, 723.4445801, 497.4976807, 267.4049988, -41.45814133, -418.7272339, -518.2267456, -713.0800171, -901.7145386, -735.882019, -499.5705872, -306.7902527, 6.21872139, 424.9459534, 534.8099976, 727.5903931, 885.1312866, 696.4967651, 478.8415222, 271.5508118, -35.23941803, -433.2375793, -524.4454956, -698.5697021, -804.2879639, -592.8514404, -350.3212891, -136.8118591, 22.80197716, 300.5715332, 495.4247742, 592.8514404, 623.9450073, 489.2060547, 335.8109436, 157.5409393, -70.47883606, -342.0296631, -489.2060547, -603.2159424, -663.3302612, -499.5705872, -310.9360657, -130.5931396, 89.13500214, 358.612915, 534.8099976, 623.9450073, 698.5697021, 526.5183716, 319.2276917 };
+                    break;
+
+                case 1:
+                    ObservationName = "Two-Phase Voltage Sag/Fault";
+                    ObservationStartTime = new DateTime(2022, 7, 3, 0, 15, 23, 923, DateTimeKind.Utc);
+                    SampleTime = new double[] { -0.016666667, -0.015625, -0.014583333, -0.013541667, -0.0125, -0.011458333, -0.010416667, -0.009375, -0.008333333, -0.007291667, -0.00625, -0.005208333, -0.004166667, -0.003125, -0.002083333, -0.001041667, -3.46945E-18, 0.001041667, 0.002083333, 0.003125, 0.004166667, 0.005208333, 0.00625, 0.007291667, 0.008333333, 0.009375, 0.010416667, 0.011458333, 0.0125, 0.013541667, 0.014583333, 0.015625, 0.016666667, 0.017708333, 0.01875, 0.019791667, 0.020833333, 0.021875, 0.022916667, 0.023958333, 0.025, 0.026041667, 0.027083333, 0.028125, 0.029166667, 0.030208333, 0.03125, 0.032291667, 0.033333333, 0.034375, 0.035416667, 0.036458333, 0.0375, 0.038541667, 0.039583333, 0.040625, 0.041666667, 0.042708333, 0.04375, 0.044791667, 0.045833333, 0.046875, 0.047916667, 0.048958333, 0.05, 0.051041667, 0.052083333, 0.053125, 0.054166667, 0.055208333, 0.05625, 0.057291667, 0.058333333, 0.059375, 0.060416667, 0.061458333, 0.0625, 0.063541667, 0.064583333, 0.065625, 0.066666667, 0.067708333, 0.06875, 0.069791667, 0.070833333, 0.071875, 0.072916667, 0.073958333, 0.075, 0.076041667, 0.077083333, 0.078125, 0.079166667, 0.080208333, 0.08125, 0.082291667, 0.083333333, 0.084375, 0.085416667, 0.086458333, 0.0875, 0.088541667, 0.089583333, 0.090625, 0.091666667, 0.092708333, 0.09375, 0.094791667, 0.095833333, 0.096875, 0.097916667, 0.098958333, 0.1, 0.101041667, 0.102083333, 0.103125, 0.104166667, 0.105208333, 0.10625, 0.107291667, 0.108333333, 0.109375, 0.110416667, 0.111458333, 0.1125, 0.113541667, 0.114583333, 0.115625, 0.116666667, 0.117708333, 0.11875, 0.119791667, 0.120833333, 0.121875, 0.122916667, 0.123958333, 0.125, 0.126041667, 0.127083333, 0.128125, 0.129166667, 0.130208333, 0.13125, 0.132291667, 0.133333333, 0.134375, 0.135416667, 0.136458333, 0.1375, 0.138541667, 0.139583333, 0.140625, 0.141666667, 0.142708333, 0.14375, 0.144791667, 0.145833333, 0.146875, 0.147916667, 0.148958333, 0.15, 0.151041667, 0.152083333, 0.153125, 0.154166667, 0.155208333, 0.15625, 0.157291667, 0.158333333, 0.159375, 0.160416667, 0.161458333, 0.1625, 0.163541667, 0.164583333, 0.165625, 0.166666667, 0.167708333, 0.16875, 0.169791667, 0.170833333, 0.171875, 0.172916667, 0.173958333, 0.175, 0.176041667, 0.177083333, 0.178125, 0.179166667, 0.180208333, 0.18125, 0.182291667, 0.183333333, 0.184375, 0.185416667, 0.186458333, 0.1875, 0.188541667, 0.189583333, 0.190625, 0.191666667, 0.192708333, 0.19375, 0.194791667, 0.195833333, 0.196875, 0.197916667, 0.198958333, 0.2, 0.201041667, 0.202083333, 0.203125, 0.204166667, 0.205208333, 0.20625, 0.207291667, 0.208333333, 0.209375, 0.210416667, 0.211458333, 0.2125, 0.213541667, 0.214583333, 0.215625, 0.216666667, 0.217708333, 0.21875, 0.219791667, 0.220833333, 0.221875, 0.222916667, 0.223958333, 0.225, 0.226041667, 0.227083333, 0.228125, 0.229166667, 0.230208333, 0.23125, 0.232291667 };
+                    Va = new double[] { 6697.778809, -1156.681274, -7256.308105, -13515.9502, -17266.40039, -18358.31445, -17158.20117, -12040, -4561.194824, 3290.217041, 9430.990234, 15819.40723, 13725.49414, 14077.52734, 15128.29395, 13148.67676, 8678.157227, 4401.941895, -1225.259155, -6466.137695, -10426.13281, -13362.03027, -13867.22168, -11995.04395, -8912.083984, -4333.36377, 1194.018188, 5928.943848, 10371.27051, 13413.08301, 14333.55176, 12261.73535, 9151.344727, 4557.385254, -915.8964844, -5666.82373, -10040.57227, -13009.23535, -13907.60645, -12255.63965, -9167.34668, -4504.046875, 986.760376, 5705.68457, 9918.65625, 12970.37402, 14005.13965, 12165.72656, 9138.391602, 4463.662109, -1024.09729, -5826.077148, -10160.20313, -12965.80273, -13819.2168, -12232.01855, -9178.776367, -4424.039063, 1009.61969, 5785.692383, 10145.72559, 13029.04688, 13929.70313, 12123.81738, 9167.34668, 4407.275391, -1104.866821, -5876.367676, -10398.70117, -13109.81641, -13845.12402, -12260.97363, -9150.583008, -4342.507324, 1116.296509, 5834.458496, 10228.01855, 13129.62793, 13978.46973, 12229.73242, 9175.728516, 4357.74707, -1156.681274, -5888.559082, -10416.98926, -13189.06152, -13890.84277, -12385.9375, -9218.399414, -4369.176758, 1114.010498, 5831.410645, 10294.31055, 13237.82813, 14065.33496, 12438.51465, 9338.029297, 4427.849121, -1147.537476, -5899.226563, -10512.23633, -13275.92676, -14011.23535, -12536.04785, -9306.026367, -4353.175293, 1153.633301, 5909.132324, 10417.75098, 13292.69043, 14053.14355, 12454.51563, 9253.450195, 4338.697754, -1219.16333, -5933.515625, -10485.56738, -13392.50977, -13611.19727, -8703.302734, -5878.65332, -1664.919922, 2744.641602, 5212.685547, 9235.924805, 11005.99707, 10474.89941, 8627.104492, 5862.651855, 1520.144287, -2515.286377, -5785.692383, -9373.842773, -11582.05176, -10625.00879, -8902.178711, -5936.563477, -1437.85083, 2469.567871, 5861.890137, 9261.069336, 11361.0791, 10964.08887, 8863.317383, 5901.512695, 1403.56189, -2549.575439, -6044.002441, -9352.506836, -11537.0957, -10278.30957, -8271.261719, -5661.489746, -1249.642456, 2499.284912, 5734.639648, 9098.006836, 11150.77344, 10584.62402, 8572.242188, 5622.628906, 1066.767944, -2651.68042, -5905.322754, -9186.396484, -11065.43164, -10297.3584, -8419.84668, -5791.788086, -1283.169434, 2532.050049, 5970.09082, 9240.496094, 11322.97949, 10687.49121, 8165.34668, 5476.32959, 1107.15271, -2732.449951, -5946.469238, -8972.280273, -10887.89063, -10166.29883, -8335.267578, -5579.196289, -1135.345947, 2724.068115, 5970.09082, 8977.614258, 10774.35645, 10335.45703, 8391.654297, 5694.254883, 1290.027222, -2545.003662, -5996.759766, -9146.011719, -11335.93359, -10441.37207, -8765.78418, -5710.256348, -1504.904785, 2171.634766, 6091.245117, 9563.574219, 11215.54102, 10498.52051, 8915.894531, 4667.871582, 316.9824829, -3466.99585, -7691.396973, -17538.42773, -21724.72852, -20202.29883, -14626.15039, -4782.930176, 2449.756348, 8227.066406, 12910.94043, 16005.3291, 17536.14063, 16444.99023, 11472.32715, 5072.481445, -2065.719971, -9116.293945, -14959.89648, -18051.23828, -19220.87305, -17879.03125, -12401.93945, -5212.685547, 2224.973145, 8686.539063, 15238.01855, 18215.0625, 19086.00195, 17872.17383, 12516.23633 };
+                    Vb = new double[] { 11892.17676, 16814.54883, 18119.81641, 17985.70703, 14105.7207, 6798.359863, -745.213623, -7576.338379, -14239.06641, -18901.60352, -20375.26758, -20100.95703, -10394.12988, -1464.52002, 2589.198242, 5491.568848, 10788.83398, 12224.39844, 11601.10156, 10314.12207, 6540.811523, 1863.796021, -3071.529785, -6918.751953, -10308.78809, -12043.04785, -11649.86816, -10116.77051, -7070.385742, -1866.843872, 3063.909912, 6646.726074, 10279.83301, 12039.23828, 11656.72559, 10224.20898, 6908.84668, 1922.468262, -3076.101563, -6927.895996, -10218.11328, -11947.80078, -11580.52832, -10093.91113, -7058.956055, -1981.902466, 3058.576172, 6798.359863, 10199.06348, 11893.70117, 11515.75977, 10068.00391, 6885.987305, 1952.185303, -2910.752441, -6900.464844, -10129.72363, -11774.83203, -11444.89648, -10046.66797, -7034.572754, -1967.424927, 2974.758545, 6719.875977, 10062.66992, 11706.25391, 11406.79688, 10091.625, 7005.617676, 2009.333618, -2803.313721, -6799.883789, -10026.85645, -11677.29883, -11399.93945, -10078.6709, -7075.719238, -2010.095581, 2913.038574, 6681.015137, 10026.85645, 11628.53223, 11391.55762, 10159.44043, 7100.102539, 2154.871338, -2717.972412, -6729.02002, -9946.086914, -11539.38086, -11351.93457, -10110.67383, -7181.634277, -2193.732178, 2728.640137, 6580.434082, 9933.133789, 11505.09277, 11340.50488, 10221.92285, 7247.164063, 2316.4104, -2494.713135, -6619.294922, -9920.942383, -11499.75879, -11377.08008, -10256.97363, -7348.507324, -2298.88501, 2709.590576, 6546.907227, 9847.030273, 11342.0293, 11234.59082, 10138.86719, 7097.816895, 2311.838623, -2010.857544, -2665.395996, -6634.534668, -8822.932617, -9651.963867, -10428.41895, -7945.135254, -5017.619141, -1324.316162, 2527.478027, 6371.652344, 8447.27832, 9628.342773, 10038.28613, 8166.108887, 4572.624512, 1480.521484, -2730.164063, -6192.587891, -8207.255859, -9632.152344, -10005.52148, -8198.874023, -4885.035156, -1339.555786, 2484.807373, 6094.292969, 8145.535156, 9610.055664, 10156.39258, 8384.795898, 4661.01416, 1408.89563, -2570.148682, -6264.213867, -8111.246094, -9614.626953, -9933.895508, -8187.443848, -4879.701172, -1299.932983, 2401.751953, 6214.685059, 8145.535156, 9581.100586, 10028.38086, 8297.930664, 4577.196289, 1589.484253, -2389.560303, -6116.390137, -8123.437988, -9690.825195, -9953.707031, -8288.787109, -4918.562012, -1336.507813, 2380.416504, 6209.351563, 8192.77832, 9613.103516, 10082.48145, 8370.318359, 4634.344727, 1706.828735, -2404.037842, -6088.958984, -8073.909668, -9680.157227, -10055.0498, -8419.084961, -4940.659668, -1430.993042, 2280.597412, 6052.384277, 8047.240234, 9629.104492, 10234.87695, 8570.71875, 4757.022949, 2013.143555, -2767.500977, -5841.316406, -8007.617676, -9809.693359, -10036.00098, -8508.998047, -4960.471191, -1763.215088, 2391.846191, 7056.669922, 9095.720703, 10930.56152, 11959.99316, 11135.5332, 6777.024414, 3610.247559, -1281.645508, -4427.849121, -7385.844238, -14704.63379, -17788.35547, -15564.90625, -7823.980957, 777.2166748, 7632.724609, 12286.88086, 16866.36328, 18970.94336, 18679.10742, 15385.08008, 7839.982422, 640.8227539, -6412.799316, -12827.12305, -17412.70117, -18945.03711, -18608.24219, -14710.73047, -8105.150391, -503.6668701, 6853.983887 };
+                    Vc = new double[] { -19251.35156, -16721.58789, -10065.71777, -1968.18689, 4577.958496, 11103.53027, 16957.80078, 19041.04688, 19198.01367, 16630.91211, 10062.66992, 1939.231689, -4683.111328, -10781.21387, -16704.0625, -19338.2168, -19195.72656, -16322.31152, -9986.47168, -2480.235596, 4583.29248, 10768.26074, 16861.79102, 19097.43164, 19064.66797, 16237.73242, 10116.00781, 2481.759521, -4728.830078, -10711.1123, -16697.20508, -19092.86133, -19026.56836, -16179.05957, -10000.94922, -2544.241455, 4689.207031, 10887.12891, 16836.64648, 18981.61133, 18986.18359, 16226.30273, 10028.38086, 2418.515381, -4736.449707, -10767.49805, -16791.68945, -19011.32813, -18955.70508, -16214.87305, -9987.234375, -2481.759521, 4621.391113, 10876.46094, 16915.89258, 18972.46875, 18931.32031, 16268.21094, 10035.23828, 2368.224854, -4702.922852, -10713.39844, -16869.41211, -19060.0957, -18948.84766, -16300.21387, -10047.42969, -2455.852295, 4605.389648, 10797.97754, 16918.93945, 18999.13672, 18938.94141, 16332.21777, 10095.43457, 2372.034668, -4699.875, -10685.20508, -16855.69531, -19063.90625, -18937.41797, -16327.64551, -10094.67285, -2436.802734, 4626.725098, 10799.50195, 16926.55859, 18997.61328, 18924.46289, 16344.40918, 10130.48535, 2362.12915, -4705.970703, -10692.0625, -16867.125, -19051.71289, -18912.27148, -16320.02539, -10120.58008, -2415.467529, 4626.725098, 10781.97656, 16931.89258, 18980.84961, 18889.41211, 16335.26563, 10164.77441, 2358.319092, -4715.876465, -10677.58496, -16863.31445, -19039.52148, -18980.08789, -16430.51172, -10234.87695, -2500.808838, 4559.670898, 10698.1582, 16870.17383, 19382.41211, 20194.67969, 18336.97852, 8891.510742, 74.67375946, -2843.698486, -9256.498047, -18085.52734, -20679.29688, -20332.59766, -18353.74219, -11037.23828, -921.2303467, 3911.990479, 10781.21387, 19086.00195, 20596.24219, 20350.88477, 18190.67969, 9434.039063, 235.4509277, -2979.330566, -9649.677734, -18453.5625, -20861.41016, -20429.36914, -18108.38672, -10710.35059, -742.9276733, 3678.825439, 10600.62598, 19281.06836, 20828.64453, 20454.51367, 18079.43164, 9428.705078, 371.8448181, -3185.064209, -9841.696289, -18616.625, -21090.76367, -20480.41992, -18021.52148, -10709.58789, -596.6280518, 3570.624756, 10522.1416, 19527.94922, 20843.88477, 20467.4668, 17909.50977, 9664.155273, 520.4303589, -3345.841553, -9984.186523, -18760.63867, -21128.10156, -20566.52344, -17922.46289, -10636.43848, -440.42276, 3437.278809, 10542.71484, 19650.62695, 20889.60156, 20510.90039, 17930.08398, 9628.342773, 694.1611328, -3466.99585, -10086.29102, -19003.70898, -21157.05664, -20489.56445, -17751.78125, -10505.37793, -502.1429138, 3543.955566, 11316.12207, 19038.75977, 20454.51367, 20837.78711, 18220.39648, 10400.9873, 2098.484863, -4375.272461, -12265.5459, -19131.7207, -20889.60156, -20693.01172, -17719.77734, -9959.802734, -611.1056519, 3210.971436, 9511.759766, 17859.21875, 19517.28125, 20668.62891, 19188.10742, 11072.28906, 1995.618042, -5471.757813, -12283.07129, -16694.91797, -19590.43164, -19622.43359, -16092.95605, -10043.62012, -1920.944336, 4847.698242, 11502.04492, 17161.24805, 19509.66211, 19470.80078, 16050.28613, 9944.563477, 2468.805908, -5016.095215, -11940.18164, -16892.27148, -19428.13086 };
+                    Ia = new double[] { 228.0197754, 64.26011658, -213.5094299, -509.9351196, -644.6740723, -756.611084, -681.9864502, -441.5292053, -252.8946533, -53.89558411, 219.7281494, 501.6434937, 895.4958496, 2682.341797, 3505.285889, 3926.085938, 3555.035645, 2446.030273, 864.4022217, -965.9746704, -2744.529053, -4261.896973, -5200.923828, -5437.235352, -4974.977051, -3751.96167, -2031.448853, -62.18721008, 1873.907959, 3503.212891, 4508.572754, 4809.144531, 4398.708984, 3177.766602, 1502.857666, -451.8937378, -2365.187012, -3967.544189, -4962.539551, -5240.309082, -4784.269531, -3569.545898, -1861.470581, 99.49954224, 2045.959229, 3702.211914, 4713.790527, 5003.997559, 4570.760254, 3360.182373, 1679.054688, -263.2591858, -2176.55249, -3795.49292, -4809.144531, -5099.351563, -4655.749023, -3461.754883, -1749.533569, 198.9990845, 2081.19873, 3695.993164, 4707.571777, 4985.341309, 4531.375, 3337.380371, 1641.742432, -275.6966248, -2166.187988, -3733.305664, -4734.519531, -5018.507813, -4564.541504, -3368.473877, -1685.273438, 244.6030273, 2135.094238, 3729.159668, 4724.155273, 4993.633301, 4552.104004, 3322.870117, 1633.450806, -290.2070007, -2168.260742, -3720.868164, -4717.936523, -4995.706055, -4516.864258, -3327.015869, -1635.523682, 294.3528137, 2170.33374, 3749.888916, 4707.571777, 4935.591797, 4477.479004, 3235.807861, 1529.80542, -383.487793, -2228.375, -3778.909668, -4734.519531, -4968.758301, -4479.552246, -3256.536865, -1569.190674, 371.050354, 2211.791748, 3758.18042, 4728.300781, 4974.977051, 4502.354004, 3273.120117, 1602.357178, -333.7380371, -2201.427246, -3739.524414, -4697.20752, -5157.392578, -5118.007324, -4189.345215, -2740.383057, -955.6101685, 1042.672241, 2868.90332, 4193.490723, 4809.144531, 4720.009277, 3812.076172, 2315.437256, 464.3311768, -1453.107788, -3194.349854, -4384.198242, -4972.903809, -4836.092285, -3926.085938, -2443.95752, -684.0593262, 1278.983643, 3055.465088, 4309.57373, 4844.383789, 4693.061523, 3805.857422, 2302.999756, 493.3518677, -1403.358032, -3150.818604, -4363.469238, -5043.382813, -4966.685059, -4093.991455, -2645.029297, -856.1105957, 1102.786499, 2918.653076, 4185.199219, 4771.832031, 4664.041016, 3853.53418, 2381.770264, 603.2159424, -1314.223022, -3105.214844, -4359.32373, -4968.758301, -4854.748535, -3961.325439, -2487.488525, -708.9342041, 1216.796387, 3024.371338, 4280.553223, 4896.206543, 4865.112793, 3998.637695, 2545.529785, 777.3401489, -1164.973755, -2995.350586, -4286.771973, -4919.008301, -4831.946289, -3971.689941, -2535.165283, -787.7046509, 1156.682129, 2999.496582, 4319.938477, 4937.664551, 4842.311035, 3955.106689, 2452.249023, 669.5489502, -1249.963013, -3026.444336, -4203.855469, -4858.894043, -4695.134277, -3822.440674, -2276.052002, -466.4040833, 1469.69104, 3121.798096, 4315.79248, 4873.404297, 4703.42627, 3741.597168, 2201.427246, 383.487793, -1021.943176, -1407.503906, -1237.525513, -756.611084, -433.2375793, -244.6030273, 234.2384949, 416.6543274, 665.4031372, 773.1943359, 754.538147, 551.3932495, 389.7065125, 192.7803497, -55.9684906, -252.8946533, -371.050354, -547.2474365, -516.1538696, -356.5400085, -252.8946533, -111.9369812, 128.5202332, 325.4464111, 420.8001404, 565.9036255, 516.1538696, 344.1025696 };
+                    Ib = new double[] { 439.4562988, 528.5913086, 642.6011963, 706.8613281, 464.3311768, 254.9675598, 103.6453552, -136.8118591, -410.4356079, -516.1538696, -632.2366333, -677.8405762, -766.9755859, -2240.8125, -3036.808838, -3308.359619, -2875.12207, -1919.511963, -524.4454956, 1098.640747, 2570.404785, 3797.565674, 4566.614258, 4707.571777, 4166.542969, 3107.287598, 1587.846802, -134.7389526, -1708.075439, -2949.746826, -3787.201172, -3971.689941, -3457.608887, -2450.176025, -959.7559814, 690.2780762, 2215.937744, 3436.879883, 4255.678223, 4411.145996, 3876.336182, 2800.497314, 1308.004395, -404.2168884, -1956.824219, -3175.693604, -4019.366699, -4193.490723, -3669.04541, -2622.227539, -1127.661377, 563.8306885, 2108.146484, 3349.817871, 4152.032715, 4309.57373, 3799.638672, 2715.508301, 1206.431885, -505.7893066, -2043.886353, -3250.318359, -4067.043701, -4232.875977, -3695.993164, -2640.883545, -1086.203247, 596.9972534, 2130.948486, 3329.088623, 4123.012207, 4276.407227, 3733.305664, 2651.248047, 1135.953003, -555.5390625, -2112.292236, -3302.140869, -4100.209961, -4243.240723, -3693.92041, -2601.498291, -1082.057495, 567.9765015, 2130.948486, 3324.942871, 4096.064453, 4226.657715, 3687.70166, 2603.571289, 1071.692993, -615.6533813, -2149.604492, -3316.651367, -4077.408203, -4168.616211, -3617.2229, -2514.436279, -976.3392334, 706.8613281, 2213.864746, 3366.401123, 4102.283203, 4199.709473, 3627.587402, 2526.873779, 986.7037354, -706.8613281, -2193.135742, -3347.744873, -4102.283203, -4212.146973, -3644.170654, -2549.675781, -997.0682983, 667.4760742, 2182.77124, 3347.744873, 4058.751953, 3892.919434, 2895.851074, 1509.076294, -273.6237183, -2170.33374, -3654.535156, -4568.687012, -4865.112793, -4564.541504, -3584.056396, -2124.729736, -337.8838501, 1509.076294, 3014.006836, 3971.689941, 4353.10498, 4056.679199, 3090.704346, 1627.232056, -184.4887238, -2068.76123, -3530.160645, -4404.927246, -4703.42627, -4357.250488, -3347.744873, -1884.272461, -58.04139709, 1770.262573, 3258.609863, 4154.105957, 4525.15625, 4255.678223, 3293.849365, 1817.939453, 10.36453533, -1888.418335, -3372.619873, -4284.69873, -4591.489258, -4290.91748, -3306.286865, -1855.251831, -47.67686081, 1778.554199, 3289.703369, 4201.782715, 4583.197266, 4249.459473, 3268.974365, 1772.335571, -43.53104782, -1936.095215, -3401.640381, -4295.063477, -4622.58252, -4315.79248, -3341.526123, -1875.980835, -74.62465668, 1759.898071, 3277.266113, 4152.032715, 4541.739258, 4224.584473, 3244.099609, 1764.043945, -60.11430359, -1898.782837, -3368.473877, -4253.605469, -4601.853516, -4278.47998, -3268.974365, -1799.283325, 39.38523483, 1861.470581, 3322.870117, 4199.709473, 4579.051758, 4172.761719, 3231.662109, 1685.273438, -99.49954224, -1923.657715, -3339.453369, -4255.678223, -4624.655762, -4251.532227, -3235.807861, -1712.221191, 174.1241913, 1956.824219, 3181.912354, 3467.973389, 3310.432617, 2578.696289, 1515.295044, 196.9261627, -914.1520386, -1111.078125, -851.9647827, -441.5292053, -242.5301208, -2.072906971, 240.4572144, 528.5913086, 717.2258301, 775.2672119, 611.5075684, 400.0710754, 273.6237183, 22.80197716, -209.3636169, -373.1232605, -543.1016235, -601.1430664, -441.5292053, -317.1547852, -126.4473267, 66.33302307 };
+                    Ic = new double[] { -638.4553833, -482.9873352, -261.1862793, -138.8847656, 29.02069855, 329.5922241, 466.4040833, 561.7578125, 636.3824463, 489.2060547, 279.8424377, 143.0305939, 6.21872139, -302.6444397, -497.4976807, -609.4346924, -657.1115112, -497.4976807, -319.2276917, -169.9783783, 29.02069855, 329.5922241, 547.2474365, 642.6011963, 717.2258301, 580.4140015, 387.633606, 198.9990845, 4.145813942, -342.0296631, -555.5390625, -675.7677002, -764.90271, -611.5075684, -431.1646729, -230.0926819, 6.21872139, 310.9360657, 514.0809326, 636.3824463, 723.4445801, 592.8514404, 408.3627014, 244.6030273, 37.31232834, -296.4257202, -526.5183716, -621.8721313, -723.4445801, -553.4661865, -404.2168884, -242.5301208, -12.43744278, 290.2070007, 514.0809326, 613.5805054, 704.7883911, 582.4868774, 406.2897949, 230.0926819, 49.74977112, -298.4986267, -524.4454956, -623.9450073, -706.8613281, -574.1952515, -404.2168884, -225.9468689, -14.51034927, 294.3528137, 503.7164001, 615.6533813, 711.0071411, 574.1952515, 400.0710754, 221.8010559, 43.53104782, -298.4986267, -516.1538696, -619.7991943, -727.5903931, -592.8514404, -400.0710754, -219.7281494, -22.80197716, 302.6444397, 522.3725586, 611.5075684, 704.7883911, 574.1952515, 379.34198, 223.8739624, 43.53104782, -302.6444397, -524.4454956, -623.9450073, -717.2258301, -582.4868774, -404.2168884, -234.2384949, -18.65616417, 306.7902527, 507.8622131, 613.5805054, 706.8613281, 588.7056274, 400.0710754, 234.2384949, 45.60395432, -298.4986267, -520.2996826, -626.0179443, -719.2987671, -594.9243164, -410.4356079, -215.5823364, -31.09360504, 290.2070007, 507.8622131, 779.4130249, 1038.526489, 880.9854736, 690.2780762, 968.0476074, 746.246521, -31.09360504, -594.9243164, -737.954895, -899.6416626, -758.68396, -458.1124573, -393.8523254, -286.0611877, 300.5715332, 576.2681885, 661.2573242, 812.5795898, 706.8613281, 518.2267456, 771.1213989, 557.6119995, -147.1764069, -615.6533813, -669.5489502, -795.9963379, -679.9135132, -460.1853638, -451.8937378, -317.1547852, 294.3528137, 590.7785034, 644.6740723, 789.7775879, 669.5489502, 514.0809326, 737.954895, 532.7371216, -169.9783783, -609.4346924, -648.8198853, -762.8297729, -669.5489502, -458.1124573, -464.3311768, -350.3212891, 300.5715332, 580.4140015, 617.7263184, 752.465271, 646.7470093, 499.5705872, 659.1844482, 482.9873352, -194.8532562, -609.4346924, -648.8198853, -798.0692139, -669.5489502, -472.6228027, -505.7893066, -385.5606995, 296.4257202, 578.3410645, 607.3617554, 750.392334, 648.8198853, 505.7893066, 657.1115112, 462.2582703, -215.5823364, -615.6533813, -646.7470093, -740.027832, -669.5489502, -472.6228027, -499.5705872, -350.3212891, 279.8424377, 449.8208313, 661.2573242, 737.954895, 634.3095703, 387.633606, 360.6858215, 95.35372162, -290.2070007, -429.0917664, -507.8622131, -603.2159424, -485.0602417, -346.1754761, -414.5814209, -342.0296631, 136.8118591, 257.0404663, 313.0089722, 507.8622131, 474.6957092, 211.4365234, 128.5202332, -68.40592957, -252.8946533, -354.4671021, -451.8937378, -431.1646729, -362.758728, -238.3843079, -120.2286072, -18.65616417, 254.9675598, 337.8838501, 418.7272339, 429.0917664, 335.8109436, 215.5823364, 97.42662811, -80.84337616, -259.1133728, -360.6858215, -424.9459534 };
+                    break;
+
+                default:
+                    ObservationName = "Single-Phase Voltage Sag/Fault Evolves into Two-Phase Voltage Sag/Fault";
+                    ObservationStartTime = new DateTime(2022, 7, 10, 8, 54, 1, 325, DateTimeKind.Utc);
+                    SampleTime = new double[] { -0.016666667, -0.015625, -0.014583333, -0.013541667, -0.0125, -0.011458333, -0.010416667, -0.009375, -0.008333333, -0.007291667, -0.00625, -0.005208333, -0.004166667, -0.003125, -0.002083333, -0.001041667, -3.46945E-18, 0.001041667, 0.002083333, 0.003125, 0.004166667, 0.005208333, 0.00625, 0.007291667, 0.008333333, 0.009375, 0.010416667, 0.011458333, 0.0125, 0.013541667, 0.014583333, 0.015625, 0.016666667, 0.017708333, 0.01875, 0.019791667, 0.020833333, 0.021875, 0.022916667, 0.023958333, 0.025, 0.026041667, 0.027083333, 0.028125, 0.029166667, 0.030208333, 0.03125, 0.032291667, 0.033333333, 0.034375, 0.035416667, 0.036458333, 0.0375, 0.038541667, 0.039583333, 0.040625, 0.041666667, 0.042708333, 0.04375, 0.044791667, 0.045833333, 0.046875, 0.047916667, 0.048958333, 0.05, 0.051041667, 0.052083333, 0.053125, 0.054166667, 0.055208333, 0.05625, 0.057291667, 0.058333333, 0.059375, 0.060416667, 0.061458333, 0.0625, 0.063541667, 0.064583333, 0.065625, 0.066666667, 0.067708333, 0.06875, 0.069791667, 0.070833333, 0.071875, 0.072916667, 0.073958333, 0.075, 0.076041667, 0.077083333, 0.078125, 0.079166667, 0.080208333, 0.08125, 0.082291667, 0.083333333, 0.084375, 0.085416667, 0.086458333, 0.0875, 0.088541667, 0.089583333, 0.090625, 0.091666667, 0.092708333, 0.09375, 0.094791667, 0.095833333, 0.096875, 0.097916667, 0.098958333, 0.1, 0.101041667, 0.102083333, 0.103125, 0.104166667, 0.105208333, 0.10625, 0.107291667, 0.108333333, 0.109375, 0.110416667, 0.111458333, 0.1125, 0.113541667, 0.114583333, 0.115625, 0.116666667, 0.117708333, 0.11875, 0.119791667, 0.120833333, 0.121875, 0.122916667, 0.123958333, 0.125, 0.126041667, 0.127083333, 0.128125, 0.129166667, 0.130208333, 0.13125, 0.132291667, 0.133333333, 0.134375, 0.135416667, 0.136458333, 0.1375, 0.138541667, 0.139583333, 0.140625, 0.141666667, 0.142708333, 0.14375, 0.144791667, 0.145833333, 0.146875, 0.147916667, 0.148958333, 0.15, 0.151041667, 0.152083333, 0.153125, 0.154166667, 0.155208333, 0.15625, 0.157291667, 0.158333333, 0.159375, 0.160416667, 0.161458333, 0.1625, 0.163541667, 0.164583333, 0.165625, 0.166666667, 0.167708333, 0.16875, 0.169791667, 0.170833333, 0.171875, 0.172916667, 0.173958333, 0.175, 0.176041667, 0.177083333, 0.178125, 0.179166667, 0.180208333, 0.18125, 0.182291667 };
+                    Va = new double[] { -12619.86523, -5058.003906, 2618.915283, 9563.574219, 15587.76563, 18878.74414, 19605.67188, 18204.39453, 12620.62695, 5057.242188, -2619.677246, -9558.241211, -15612.14941, -18875.69727, -19604.14648, -18189.15625, -12252.5918, -4681.587402, 2991.522217, 9941.515625, 15948.94238, 19222.39648, 19945.51367, 18529.75977, 12929.98926, 5362.032715, -2315.648438, -9322.02832, -16781.7832, -20516.23438, -20502.51758, -18496.23242, -11708.54004, -2522.144287, 4417.181152, 12299.07227, 18808.64258, 19970.6582, 20446.13086, 18023.04492, 11092.8623, 1815.791504, -3660.538086, -12307.4541, -18892.46094, -20058.28516, -20280.7832, -17442.41797, -11016.66504, -2234.116943, 4574.148438, 12648.05762, 18663.10547, 19969.13477, 20299.07031, 17648.91406, 10776.64258, 1779.978516, -3993.521973, -12442.32422, -18722.53906, -20107.05273, -20329.54883, -17517.0918, -11005.99707, -2064.196045, 4473.567383, 12477.375, 18615.10156, 20087.24023, 20417.17578, 17654.24805, 10818.55078, 1846.270508, -4196.208008, -12478.13672, -18630.33984, -20132.95898, -20365.36133, -17512.51953, -10906.17871, -1966.662964, 4430.896973, 12507.85449, 18636.43555, 20121.5293, 20389.74609, 17543.76172, 10794.92969, 1881.321533, -4351.651367, -12554.33496, -18536.61719, -20171.82031, -20363.83789, -17450.03711, -10874.17578, -1898.084961, 4344.793457, 12524.61816, 18754.54297, 20227.44336, 20422.50977, 17539.18945, 10809.40723, 1777.692627, -4260.213867, -12584.81348, -18799.5, -20216.77734, -20347.83594, -17420.32031, -11230.78027, -2211.257568, 4050.67041, 12216.0166, 18400.22266, 19835.78906, 20007.23242, 16979.89844, 9991.043945, 1368.510864, -3831.98291, -11772.5459, -17981.13672, -18319.45313, -19821.31055, -17676.3457, -11861.69727, -4311.266602, 3198.017822, 9519.379883, 15851.41016, 19060.0957, 19619.38672, 17356.31445, 11915.79785, 4775.310547, -3051.718262, -9520.141602, -15987.04199, -19146.96094, -19670.43945, -17748.73242, -12168.0127, -4916.276367, 2992.28418, 10122.86621, 16217.15918, 19294.02148, 19691.77344, 17604.71875, 11981.32813, 4625.962891, -3215.543457, -9992.567383, -16181.3457, -19184.29688, -19516.51953, -17349.45703, -11778.64258, -4460.61377, 3294.0271, 10103.05469, 16240.78027, 19248.30469, 19515.75781, 17376.12695, 11918.8457, 4450.708496, -3601.865723, -10355.26855, -15819.40723, -18829.97852, -19603.38477, -17703.77539, -11767.21289, -4444.612305, 3470.043701, 10383.46191, 16053.33398, 19118.00586, 19711.58594, 17665.67773, 11657.4873, 4386.702148, -3402.227783, -10269.16504, -16134.10352, -19146.96094, -19685.67773, -17597.86133 };
+                    Vb = new double[] { -7486.425293, -13849.69629, -18092.38477, -19488.32617, -18898.55664, -14613.95898, -7355.365234, 255.2623291, 7515.380371, 13861.12598, 18108.38672, 19498.23242, 18893.22266, 14601.00488, 7332.505859, -275.8357239, -6236.782715, -12599.29102, -16829.78906, -18217.34961, -17610.05273, -13301.07227, -6035.620605, 1571.95874, 8833.600586, 15166.39258, 19395.36523, 19319.16797, 9402.797852, 8946.373047, 6265.737793, 1933.897949, -2714.924316, -6019.619141, -8494.520508, -10368.22266, -9580.337891, -7898.654785, -5115.914063, -1016.477478, 2340.793701, 5906.84668, 7905.512695, 10147.24902, 9790.643555, 8093.720703, 5467.947754, 1554.43335, -1875.987671, -5641.678711, -7691.396973, -10117.53223, -9597.101563, -8066.289551, -5260.689941, -1369.272827, 2025.335205, 5638.630371, 7660.155762, 10068.76563, 9585.671875, 7897.892578, 5299.550781, 1446.232544, -1926.278076, -5582.244141, -7655.583984, -10128.2002, -9818.075195, -7874.271484, -5330.029785, -1495.761108, 1881.321533, 5701.112793, 7782.833984, 10289.73926, 9757.878906, 7791.21582, 5216.495117, 1385.274414, -1943.041626, -5583.768066, -7571.766602, -10094.67285, -9858.459961, -7944.373535, -5323.934082, -1388.322266, 1931.611938, 5649.29834, 7794.263672, 10370.50879, 9799.787109, 7644.916504, 5159.347168, 1360.12915, -2084.007324, -5732.354004, -7600.72168, -9930.847656, -9480.519531, -7618.24707, -5051.908203, -1162.015137, 2137.345703, 5744.54541, 7645.678223, 9865.317383, 9466.803711, 7599.197754, 5054.956055, 1149.823486, -2472.615723, -6036.382813, -7952.754883, -10279.83301, -9869.889648, -8015.999023, -5679.015625, -2603.675781, -464.8060303, 1107.914673, 3866.271729, 6799.883789, 13051.90625, 12395.84375, 10602.91113, 5545.669434, 1816.553467, -2880.273438, -8318.503906, -11560.7168, -12946.75293, -12179.44238, -9889.701172, -6448.612305, -1639.012817, 3187.350342, 8198.111328, 11348.88672, 12900.27246, 12206.11133, 9951.420898, 6257.355957, 1392.132202, -3527.192139, -8550.907227, -11182.77637, -12653.3916, -12190.10938, -10063.43164, -6201.731445, -1186.398315, 3437.278809, 8213.351563, 11309.26465, 12693.77637, 12249.54395, 10110.67383, 6150.679199, 164.5870514, -4601.57959, -9544.525391, -12510.90234, -13957.13477, -13478.61328, -11392.31934, -7333.267578, -2040.574707, 4078.101563, 17050.76172, 17693.87109, 17487.375, 13288.11914, 6325.171875, -1222.211304, -7591.578125, -13508.33008, -17206.9668, -18953.41797, -18280.59375, -13887.0332, -7098.578613, 412.2296143, 7637.296387, 13749.87695, 17684.72656, 18935.89258, 18209.72852, 13589.09961, 6920.275879, -612.6295776 };
+                    Vc = new double[] { 19257.44727, 19285.64063, 16545.57031, 9770.832031, 2115.248535, -5261.452148, -11936.37109, -17081.24023, -19264.30469, -19284.87891, -16533.37891, -9760.165039, -2127.440186, 5268.30957, 11941.70508, 17058.38086, 19613.29102, 19632.33984, 16870.17383, 10089.33887, 2432.230957, -4950.56543, -11610.24512, -16751.30469, -18922.17773, -18934.36914, -16155.43848, -9424.894531, -3502.046875, 3095.913086, 10817.78906, 17694.63281, 19558.42773, 20160.39063, 19532.52148, 13679.77539, 3222.401123, -3622.439209, -9475.947266, -17258.78125, -19803.78516, -20440.79883, -19499.75586, -13464.89746, -3924.944092, 3735.21167, 9786.833984, 17821.12109, 19976.75391, 20674.72461, 19590.43164, 13501.47266, 3454.042236, -3902.84668, -9421.84668, -17757.87695, -20137.53125, -20822.54883, -19566.81055, -13115.91211, -3865.509766, 3826.648926, 9694.634766, 17872.93555, 20055.23828, 20805.02344, 19454.03711, 12955.13477, 3579.006592, -3940.945557, -9524.713867, -17878.26953, -20205.34766, -20875.125, -19427.36914, -12749.40137, -3657.490234, 3887.607178, 9615.388672, 17907.98633, 20108.57617, 20844.64648, 19400.69922, 12830.1709, 3659.776123, -4002.665771, -9593.291992, -17929.32227, -20212.9668, -20938.36914, -19418.22461, -12690.72852, -3492.141113, 3898.274902, 9584.148438, 17946.08398, 20098.66992, 20840.83594, 19329.07422, 12735.68555, 3778.644531, -3989.712158, -9615.388672, -17903.41406, -20135.24414, -20912.46094, -19345.83594, -12682.34668, -3760.356934, 3956.947021, 9673.299805, 17927.79688, 18683.67773, 19457.84766, 17928.55859, 11285.64258, 2299.646973, -5461.852051, -11050.19238, -19467.75391, -21797.87891, -15366.79199, -12529.18945, -8167.632813, 370.3208618, 5122.771973, 9069.051758, 9629.104492, 11902.84473, 10564.05078, 7831.600586, 2849.794434, -1710.63855, -5931.991699, -9587.196289, -11476.89941, -11433.4668, -10213.54102, -7727.97168, -2782.740479, 1773.120728, 5800.169922, 9226.018555, 10922.17969, 10768.26074, 9834.838867, 7501.664551, 2480.997559, -2034.478882, -6108.770508, -9369.270508, -11023.52246, -10903.13086, -9815.027344, -7244.116211, -2554.90918, 1954.471313, 6062.290039, 9420.323242, 11029.61816, 11784.73828, 10705.77832, 8254.498047, 3470.805664, -890.7512207, -5054.194336, -8389.368164, -9857.698242, -9205.445313, -11109.62598, -16866.36328, -8923.513672, -876.2736816, 6683.30127, 12840.83789, 17432.51172, 18875.69727, 19009.04297, 15896.36621, 9539.953125, 1882.083496, -5510.618652, -12228.9707, -17005.80469, -19287.92578, -19174.39258, -15812.54883, -9297.644531, -1815.029419, 5492.331055, 12292.21484, 17144.48438 };
+                    Ia = new double[] { -358.612915, -209.3636169, 29.02069855, 281.9153442, 487.1331482, 599.0701294, 700.6425781, 615.6533813, 371.050354, 192.7803497, -12.43744278, -296.4257202, -503.7164001, -590.7785034, -704.7883911, -601.1430664, -358.612915, -186.5616302, 35.23941803, 286.0611877, 491.2789612, 601.1430664, 704.7883911, 619.7991943, 368.9774475, 196.9261627, -14.51034927, -294.3528137, -669.5489502, -934.8811035, -1077.911621, -858.1835327, -528.5913086, -290.2070007, -53.89558411, 470.5498962, 590.7785034, 735.882019, 968.0476074, 880.9854736, 594.9243164, 499.5705872, 242.5301208, -402.1439819, -518.2267456, -657.1115112, -872.6938477, -808.4337769, -594.9243164, -393.8523254, -149.2493134, 387.633606, 497.4976807, 663.3302612, 864.4022217, 804.2879639, 561.7578125, 460.1853638, 201.071991, -400.0710754, -503.7164001, -684.0593262, -899.6416626, -818.7982788, -555.5390625, -379.34198, -143.0305939, 406.2897949, 526.5183716, 686.1322632, 887.2042236, 789.7775879, 543.1016235, 400.0710754, 167.9054718, -408.3627014, -514.0809326, -681.9864502, -895.4958496, -820.8712158, -520.2996826, -387.633606, -153.3951263, 395.9252319, 520.2996826, 681.9864502, 876.8396606, 783.5588379, 547.2474365, 385.5606995, 145.1035004, -397.9981689, -514.0809326, -688.2051392, -899.6416626, -822.9440918, -580.4140015, -412.5085144, -184.4887238, 414.5814209, 522.3725586, 692.3509521, 899.6416626, 802.2150269, 565.9036255, 416.6543274, 167.9054718, -397.9981689, -520.2996826, -679.9135132, -874.7667847, -802.2150269, -588.7056274, -414.5814209, -169.9783783, 402.1439819, 512.0080566, 671.6218872, 880.9854736, 785.6317749, 501.6434937, 364.8316345, 230.0926819, -393.8523254, -429.0917664, -532.7371216, -706.8613281, -599.0701294, -458.1124573, -188.6345367, -43.53104782, 275.6966248, 553.4661865, 721.3716431, 808.4337769, 733.809082, 547.2474365, 306.7902527, 37.31232834, -300.5715332, -592.8514404, -752.465271, -872.6938477, -783.5588379, -563.8306885, -331.6651306, -53.89558411, 248.7488403, 470.5498962, 592.8514404, 684.0593262, 611.5075684, 429.0917664, 248.7488403, 43.53104782, -223.8739624, -433.2375793, -551.3932495, -650.8928223, -572.1223755, -408.3627014, -240.4572144, -53.89558411, 225.9468689, 406.2897949, 532.7371216, 640.5282593, 559.6848755, 427.0188599, 236.3114014, 35.23941803, -219.7281494, -387.633606, -512.0080566, -609.4346924, -526.5183716, -346.1754761, -203.1448975, -22.80197716, 211.4365234, 360.6858215, 480.9144287, 565.9036255, 468.4769897, 310.9360657, 176.1970978, 6.21872139, -215.5823364, -379.34198, -464.3311768, -538.9558105, -453.9666443 };
+                    Ib = new double[] { -196.9261627, -427.0188599, -536.8829346, -652.9656982, -609.4346924, -406.2897949, -201.071991, -18.65616417, 221.8010559, 429.0917664, 547.2474365, 626.0179443, 623.9450073, 387.633606, 207.2907104, 22.80197716, -221.8010559, -433.2375793, -547.2474365, -644.6740723, -636.3824463, -400.0710754, -209.3636169, -18.65616417, 215.5823364, 422.8730469, 532.7371216, 659.1844482, 1523.58667, 2657.466797, 3080.339844, 2918.653076, 2273.979004, 1183.629883, -198.9990845, -1573.336426, -2738.310303, -3708.430664, -4038.022949, -3845.242676, -3098.996094, -1909.147339, -478.8415222, 1055.109741, 2238.739502, 3210.933105, 3569.545898, 3382.984375, 2642.956543, 1422.014282, 2.072906971, -1469.69104, -2636.737793, -3617.2229, -3946.814941, -3735.378418, -2972.548828, -1764.043945, -308.8631592, 1210.577759, 2431.52002, 3428.588379, 3793.419922, 3600.639648, 2823.299316, 1616.867554, 194.8532562, -1337.025024, -2512.363281, -3465.900635, -3803.784424, -3592.3479, -2798.424561, -1598.211304, -161.6867523, 1349.462524, 2510.290527, 3503.212891, 3857.679932, 3677.337158, 2881.34082, 1695.637939, 263.2591858, -1266.546265, -2460.540771, -3376.765625, -3725.013916, -3511.504639, -2730.018555, -1519.440918, -84.98918915, 1411.649658, 2570.404785, 3569.545898, 3950.960938, 3756.107666, 2987.059082, 1776.481323, 364.8316345, -1206.431885, -2435.665771, -3416.150879, -3812.076172, -3623.441406, -2889.632324, -1687.346313, -275.6966248, 1278.983643, 2501.998779, 3488.702637, 3874.263184, 3687.70166, 2918.653076, 1730.877441, 302.6444397, -1252.035889, -2468.832275, -3463.827637, -3814.148926, -3528.087891, -2555.894287, -802.2150269, 1656.252686, 4011.075195, 5484.912109, 5916.07666, 5534.661621, 4367.615234, 2603.571289, 379.34198, -1795.137451, -3629.660156, -4933.518555, -5457.964355, -5196.777832, -4087.772705, -2286.416504, -118.1557007, 2019.011475, 3861.825928, 5153.24707, 5632.088379, 5312.86084, 4137.522461, 2296.781006, 140.9576721, -1979.626221, -3791.346924, -5171.90332, -5700.494629, -5385.412598, -4222.511719, -2435.665771, -298.4986267, 1844.887329, 3700.13916, 5014.362305, 5536.734863, 5198.851074, 4054.606201, 2261.541504, 124.3744202, -1979.626221, -3810.003174, -5078.62207, -5578.192871, -5196.777832, -4000.710693, -2205.572998, -109.8640747, 889.2770996, 893.4229126, 945.2456055, 713.0800171, 509.9351196, 207.2907104, -84.98918915, -362.758728, -590.7785034, -820.8712158, -829.1628418, -661.2573242, -487.1331482, -252.8946533, 20.72907066, 257.0404663, 424.9459534, 613.5805054, 657.1115112, 491.2789612, 358.612915, 165.8325653 };
+                    Ic = new double[] { 655.0386353, 708.9342041, 534.8099976, 286.0611877, 114.0098877, -130.5931396, -387.633606, -561.7578125, -652.9656982, -719.2987671, -534.8099976, -283.9882507, -105.7182617, 130.5931396, 391.7794189, 553.4661865, 652.9656982, 719.2987671, 530.6641846, 298.4986267, 105.7182617, -120.2286072, -389.7065125, -553.4661865, -652.9656982, -711.0071411, -522.3725586, -294.3528137, -283.9882507, -138.8847656, 263.2591858, 439.4562988, 601.1430664, 907.9332886, 905.8603516, 460.1853638, 344.1025696, 364.8316345, -97.42662811, -427.0188599, -594.9243164, -880.9854736, -862.3293457, -447.7479248, -306.7902527, -234.2384949, 188.6345367, 489.2060547, 634.3095703, 883.0584106, 856.1105957, 460.1853638, 327.5193176, 344.1025696, -138.8847656, -453.9666443, -605.2888794, -858.1835327, -810.5066528, -443.6021118, -333.7380371, -283.9882507, 149.2493134, 418.7272339, 588.7056274, 804.2879639, 779.4130249, 439.4562988, 327.5193176, 302.6444397, -136.8118591, -447.7479248, -574.1952515, -825.0170288, -764.90271, -435.3104858, -344.1025696, -310.9360657, 128.5202332, 416.6543274, 549.3203735, 800.1421509, 766.9755859, 433.2375793, 321.3005981, 283.9882507, -155.4680328, -456.0395508, -594.9243164, -822.9440918, -750.392334, -429.0917664, -350.3212891, -315.0818787, 116.0827942, 424.9459534, 555.5390625, 781.4859619, 766.9755859, 424.9459534, 335.8109436, 283.9882507, -128.5202332, -437.3833923, -557.6119995, -800.1421509, -737.954895, -418.7272339, -339.9567566, -283.9882507, 143.0305939, 424.9459534, 567.9765015, 798.0692139, 754.538147, 427.0188599, 331.6651306, 286.0611877, -128.5202332, -458.1124573, -626.0179443, -1303.858521, -2839.882568, -3627.587402, -4444.3125, -4717.936523, -4334.44873, -3312.505371, -1732.950317, 47.67686081, 1747.460693, 3109.360596, 4035.949951, 4299.208984, 3851.461182, 2806.716064, 1276.910767, -555.5390625, -2205.572998, -3559.181396, -4469.1875, -4703.42627, -4181.053711, -3055.465088, -1422.014282, 458.1124573, 2176.55249, 3575.764648, 4564.541504, 4836.092285, 4371.760742, 3262.755615, 1625.15918, -273.6237183, -2021.084351, -3459.681885, -4446.385742, -4736.592773, -4241.167969, -3150.818604, -1525.659546, 385.5606995, 2112.292236, 3552.962646, 4500.28125, 4753.175781, 4257.750977, 3125.943848, 1413.722656, -507.8622131, -963.9017944, -485.0602417, -331.6651306, -60.11430359, 205.217804, 487.1331482, 721.3716431, 806.3608398, 702.7155151, 541.0287476, 339.9567566, 89.13500214, -190.7074432, -377.2690735, -536.8829346, -615.6533813, -487.1331482, -346.1754761, -192.7803497, 43.53104782, 294.3528137, 447.7479248 };
+                    break;
+
+            } // Determine which voltage and current waveform samples to return
+
+        } // GetExampleEventWaveforms
+
+
+        /// <summary>
+        /// Returns example voltage and current rms samples for different cases selected by <paramref name="EventIndex"/>
+        /// </summary>
+        /// <param name="EventIndex">Specifies which example event to return</param>
+        /// <param name="ObservationName">Returns the Name of Observation</param>
+        /// <param name="ObservationStartTime">Returns the Observation Start Time in UTC</param>
+        /// <param name="SampleTime">Array of Sample Time Values (seconds) relative to <paramref name="ObservationStartTime"/></param>
+        /// <param name="Va">Phase A Voltage at <paramref name="SampleTime"/> (volts)</param>
+        /// <param name="Vb">Phase B Voltage at <paramref name="SampleTime"/> (volts)</param>
+        /// <param name="Vc">Phase C Voltage at <paramref name="SampleTime"/> (volts)</param>
+        /// <param name="Ia">Phase A Current at <paramref name="SampleTime"/> (amps)</param>
+        /// <param name="Ib">Phase B Current at <paramref name="SampleTime"/> (amps)</param>
+        /// <param name="Ic">Phase C Current at <paramref name="SampleTime"/> (amps)</param>
+        /// <remarks>The examples returned by this method are analogous to the samples returned by <see cref="GetExampleEventWaveforms(int, ref string, ref DateTime, ref double[], ref double[], ref double[], ref double[], ref double[], ref double[], ref double[])"/> </remarks>
+        private void GetExampleEventRms(int EventIndex, ref string ObservationName, ref DateTime ObservationStartTime, ref double[] SampleTime, ref double[] Va, ref double[] Vb, ref double[] Vc, ref double[] Ia, ref double[] Ib, ref double[] Ic)
+        {
+            // Determine which voltage and current rms samples to return
+            switch (EventIndex)
+            {
+                case 0:
+                    ObservationName = "Single-Phase Voltage Sag/Fault";
+                    ObservationStartTime = new DateTime(2022, 7, 1, 12, 34, 56, 145, DateTimeKind.Utc);
+                    SampleTime = new double[] { -0.008333334, 2.33E-09, 0.008333338, 0.016666674, 0.02500001, 0.033333346, 0.041666682, 0.050000018, 0.058333354, 0.06666669 };
+                    Va = new double[] { 13975.08741, 13748.92839, 12794.76018, 9980.359828, 7310.909984, 7140.457917, 7012.008493, 7969.453309, 10692.26882, 12926.23754 };
+                    Vb = new double[] { 14000.44814, 13984.13727, 13986.04578, 14558.62632, 15172.45943, 15258.94479, 15270.9138, 15427.50157, 15158.50488, 14447.23085 };
+                    Vc = new double[] { 13959.9269, 14049.03601, 14278.57391, 14528.41201, 14636.31605, 14631.87731, 14630.56465, 14338.4714, 14043.9553, 13964.13881 };
+                    Ia = new double[] { 463.4729426, 462.3950702, 1273.661878, 2506.266723, 2863.385024, 2765.995443, 2838.179952, 2582.08865, 1756.0951, 669.2013403 };
+                    Ib = new double[] { 430.7773777, 433.0577665, 431.6685822, 482.3975818, 530.8875926, 529.7755435, 514.4767777, 509.2022944, 512.9151867, 466.6645717 };
+                    Ic = new double[] { 452.5357269, 452.548182, 544.2195384, 620.8066831, 605.5931508, 582.0046462, 571.0616678, 543.9897737, 473.9919736, 431.8651345 };
+                    break;
+
+                case 1:
+                    ObservationName = "Two-Phase Voltage Sag/Fault";
+                    ObservationStartTime = new DateTime(2022, 7, 3, 0, 15, 23, 923, DateTimeKind.Utc);
+                    SampleTime = new double[] { -0.008333334, 2.33E-09, 0.008333338, 0.016666674, 0.02500001, 0.033333346, 0.041666682, 0.050000018, 0.058333354, 0.06666669, 0.075000026, 0.083333362, 0.091666698, 0.100000034, 0.10833337, 0.116666706, 0.125000042, 0.133333378, 0.141666714, 0.15000005, 0.158333386, 0.166666722, 0.175000058, 0.183333394, 0.19166673, 0.200000066, 0.208333402, 0.216666738 };
+                    Va = new double[] { 12537.94496, 10956.09108, 9809.067748, 9776.247967, 9681.679037, 9679.151657, 9690.176218, 9725.183057, 9750.246735, 9771.994391, 9814.234378, 9862.254722, 9882.999434, 9588.7113, 8492.947868, 7718.7081, 7834.286669, 7769.497263, 7664.191028, 7598.506964, 7624.614104, 7573.216074, 7480.499092, 7599.11938, 7738.67913, 11119.628, 13047.21736, 13073.47774 };
+                    Vb = new double[] { 13475.38795, 11555.91451, 8684.675661, 8647.017822, 8632.797055, 8585.088949, 8541.502545, 8507.363589, 8489.427738, 8485.752274, 8466.014626, 8449.722215, 8466.31998, 8277.575489, 7671.810949, 7171.48764, 7072.465978, 7058.974473, 7044.839045, 7026.02653, 7036.150101, 7056.537869, 7069.259075, 7098.736555, 7104.987604, 7828.974609, 9838.711561, 12382.19484 };
+                    Vc = new double[] { 13899.46128, 13847.59954, 13790.41989, 13762.71896, 13753.42458, 13751.93533, 13756.87162, 13763.36684, 13769.39564, 13773.36733, 13774.81212, 13771.14858, 13767.16491, 13812.11927, 14160.59113, 14715.18345, 14800.34531, 14798.38751, 14842.3587, 14856.06277, 14876.82466, 14886.19753, 14918.31465, 14842.77173, 15037.04604, 14775.7983, 14593.86702, 14458.5465 };
+                    Ia = new double[] { 1542.617467, 2944.017457, 3577.781951, 3601.47696, 3619.312656, 3602.114052, 3580.436753, 3557.041074, 3548.544947, 3545.054877, 3533.798499, 3525.635389, 3524.470812, 3540.399378, 3565.062478, 3543.057779, 3508.102908, 3506.103408, 3514.327868, 3507.850894, 3505.137002, 3522.41936, 3528.38146, 3509.830406, 3481.116241, 2985.166568, 1743.459649, 466.1520951 };
+                    Ib = new double[] { 1340.853233, 2556.212995, 3049.252589, 3009.755358, 3021.231794, 3018.720317, 3022.08045, 3018.735248, 3019.001927, 3009.290611, 2996.599422, 2990.491178, 2991.295619, 2962.542609, 3191.806346, 3299.597644, 3254.838284, 3296.261736, 3272.093947, 3278.979288, 3285.104045, 3277.127716, 3263.524887, 3265.503066, 3261.218881, 2986.862247, 1974.942455, 682.2185109 };
+                    Ic = new double[] { 420.1643113, 439.1475675, 471.3961049, 492.9050287, 488.5237712, 476.4246173, 473.4846002, 472.5838834, 470.9999992, 475.2744125, 474.7638841, 472.9641904, 475.3800692, 490.6499239, 650.0716362, 680.8129053, 605.9345206, 594.0732451, 583.6151427, 579.5035828, 565.652998, 572.0850234, 571.9178724, 561.1740144, 504.4894225, 429.6256116, 365.1700948, 324.6735109 };
+                    break;
+
+                default:
+                    ObservationName = "Single-Phase Voltage Sag/Fault Evolves into Two-Phase Voltage Sag/Fault";
+                    ObservationStartTime = new DateTime(2022, 7, 10, 8, 54, 1, 325, DateTimeKind.Utc);
+                    SampleTime = new double[] { -0.008333334, 2.33E-09, 0.008333338, 0.016666674, 0.02500001, 0.033333346, 0.041666682, 0.050000018, 0.058333354, 0.06666669, 0.075000026, 0.083333362, 0.091666698, 0.100000034, 0.10833337, 0.116666706, 0.125000042, 0.133333378, 0.141666714, 0.15000005, 0.158333386, 0.166666722 };
+                    Va = new double[] { 14134.64398, 14237.1625, 14573.25767, 14922.51413, 14949.34381, 14882.66254, 14880.56357, 14884.29003, 14889.73437, 14879.16634, 14876.42017, 14894.40836, 14915.07173, 14776.38276, 14440.66307, 14098.05202, 14030.5926, 14154.22926, 14149.90799, 14087.94889, 14082.8384, 14112.31873 };
+                    Vb = new double[] { 14054.73923, 13507.81463, 12766.16012, 10227.27056, 7089.405173, 6995.993249, 6910.055484, 6916.910777, 6949.141227, 6947.595404, 6944.669934, 6870.583828, 6782.226099, 6981.073144, 7672.962678, 8658.835477, 9124.948044, 9094.765397, 9085.750298, 9645.852569, 11116.82016, 12800.11902 };
+                    Vc = new double[] { 14044.39465, 14097.52309, 13965.79504, 14333.42621, 14964.72041, 15079.28482, 15126.27025, 15118.38451, 15094.88514, 15100.49855, 15102.09521, 15090.77214, 15082.95887, 14864.69327, 13344.07853, 10370.64505, 8397.118813, 8176.079452, 8104.980583, 8111.546928, 10043.81738, 12797.64718 };
+                    Ia = new double[] { 463.8549263, 464.6101623, 570.7744913, 645.8615025, 619.0367796, 597.0098225, 596.4715736, 598.2377518, 594.3498476, 590.2850806, 590.1260429, 600.5297936, 598.9724058, 593.6038218, 543.9969299, 516.0773655, 565.7223088, 541.1808569, 464.2319769, 432.4107831, 418.3072362, 391.8047951 };
+                    Ib = new double[] { 434.5071042, 437.9601733, 1366.914897, 2368.588398, 2687.107222, 2679.01429, 2730.217125, 2700.000003, 2707.862078, 2689.390864, 2708.121051, 2735.86767, 2725.800546, 2718.122675, 3527.240765, 4046.337917, 3945.080213, 4011.845943, 3969.006134, 3920.054698, 2868.541911, 819.9965237 };
+                    Ic = new double[] { 473.9378494, 474.1282073, 464.4933833, 519.3260483, 567.8616182, 563.2462172, 554.7568506, 533.7552064, 524.538425, 519.8607518, 520.1194971, 517.4366364, 509.7634153, 512.2088928, 2464.962564, 3243.241775, 3178.00067, 3373.801092, 3378.490538, 3346.619654, 2425.396234, 616.1010166 };
+                    break;
+
+            } // Determine which voltage and current rms samples to return
+
+        } // GetExampleEventRms
+
+
+    } // class Writer
+
+} // namespace PQDIF.Examples

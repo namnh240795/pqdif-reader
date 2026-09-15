@@ -1,0 +1,3 @@
+To build this project you must obtain zlib 1.2.11 source code from https://www.zlib.net/
+
+To integrate the zlib source copy *.h and *c from the zlib source to the ./zlib subproject of this solution.
