@@ -1,7 +1,7 @@
 'use strict';
 
 const { getTypeSize } = require('../constants/physicalTypes');
-const { tagNameToGuid, tagGuidToName, idIntToName, idGuidToName } = require('../constants/nameLookup');
+const { tagNameToGuid, tagGuidToName, idIntToName, idGuidToName, tagNameLowerToGuid, idNameLowerToGuid, idNameLowerToInt, physTypeToName } = require('../constants/nameLookup');
 
 /**
  * CPQDIF_Info singleton equivalent - provides helper methods for
@@ -91,6 +91,80 @@ class PqdifInfo {
       data3.match(/../g).reverse().join('') +
       data4;
     return Buffer.from(wireHex, 'hex');
+  }
+
+  /**
+   * Returns a short/alternate name for a tag GUID.
+   * Since the JS port does not define alias macros, this returns the full name.
+   * @param {Buffer} tagGuid - 16-byte GUID Buffer
+   * @returns {string} Tag name or empty string if not found
+   */
+  static getAliasTag(tagGuid) {
+    if (!tagGuid) return '';
+    const hex = tagGuid.toString('hex');
+    return tagGuidToName.get(hex) || '';
+  }
+
+  /**
+   * Returns a short/alternate name for an ID GUID.
+   * Since the JS port does not define alias macros, this returns the full name.
+   * @param {Buffer} idGuid - 16-byte GUID Buffer
+   * @returns {string} ID name or empty string if not found
+   */
+  static getAliasID(idGuid) {
+    if (!idGuid) return '';
+    const hex = idGuid.toString('hex');
+    return idGuidToName.get(hex) || '';
+  }
+
+  /**
+   * Returns a short/alternate name for an integer ID.
+   * Since the JS port does not define alias macros, this returns the full name.
+   * @param {number} idInt - Integer ID value
+   * @returns {string} ID name or empty string if not found
+   */
+  static getAliasIDInt(idInt) {
+    return idIntToName.get(idInt) || '';
+  }
+
+  /**
+   * Reverse lookup: tag name -> tag GUID Buffer. Case-insensitive.
+   * @param {string} name - Tag name (e.g., "tagContainer")
+   * @returns {Buffer|null} 16-byte GUID Buffer or null if not found
+   */
+  static getTagFromName(name) {
+    if (!name) return null;
+    return tagNameLowerToGuid.get(name.toLowerCase()) || null;
+  }
+
+  /**
+   * Reverse lookup: ID name -> ID GUID Buffer. Case-insensitive.
+   * @param {string} name - ID name (e.g., "ID_QM_VOLTAGE")
+   * @returns {Buffer|null} 16-byte GUID Buffer or null if not found
+   */
+  static getIDFromName(name) {
+    if (!name) return null;
+    return idNameLowerToGuid.get(name.toLowerCase()) || null;
+  }
+
+  /**
+   * Reverse lookup: ID name -> integer ID. Case-insensitive.
+   * @param {string} name - ID name (e.g., "ID_QM_VOLTAGE")
+   * @returns {number|null} Integer ID or null if not found
+   */
+  static getIDFromNameInt(name) {
+    if (!name) return null;
+    const result = idNameLowerToInt.get(name.toLowerCase());
+    return result !== undefined ? result : null;
+  }
+
+  /**
+   * Returns the string name of a physical type.
+   * @param {number} physicalType - Physical type ID (e.g., 40 for REAL4)
+   * @returns {string} Name string or empty string if not found
+   */
+  static getNamePhysType(physicalType) {
+    return physTypeToName.get(physicalType) || '';
   }
 }
 

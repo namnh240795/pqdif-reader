@@ -32,11 +32,15 @@ class Scalar extends Element {
    */
   getValue(out) {
     if (this.physicalType !== 0 && this.value !== null) {
-      out.typePhysical = this.physicalType;
-      out.value = this.value;
-      return true;
+      if (out !== undefined && out !== null) {
+        out.typePhysical = this.physicalType;
+        out.value = this.value;
+        return true;
+      }
+      // No-argument mode: return the PqdifValue directly
+      return this.value;
     }
-    return false;
+    return out !== undefined && out !== null ? false : null;
   }
 
   /**

@@ -306,8 +306,8 @@ class SettingsRecord extends Record {
       else status = false;
     }
 
-    // Removed time
-    if (status) {
+    // Removed time (optional - only set if non-null)
+    if (status && timeRemoved !== null && timeRemoved !== undefined) {
       psc = Record.findOrCreateScalarInCollection(pcollMain, tagTimeRemoved, ID_PHYS_TYPE_TIMESTAMPPQDIF);
       if (psc) psc.setValueTimeStamp(timeRemoved);
       else status = false;

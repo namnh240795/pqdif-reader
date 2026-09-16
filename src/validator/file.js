@@ -12,7 +12,9 @@ const Container = require('./container');
 const DataSource = require('./dataSource');
 const MonitorSettings = require('./monitorSettings');
 const Observation = require('./observation');
-const { xmlGetElement } = require('./utilities');
+const { xmlGetElement, isNumeric, dateToPqdifTimestamp } = require('./utilities');
+const { Record } = require('../core/record');
+const { ObservationRecord } = require('../core/observationRecord');
 
 // Record header size: 64 bytes
 const RECORD_HEADER_SIZE = 64;
@@ -319,6 +321,7 @@ class PqFile {
       controller.setCompressionAlgorithm(ID_COMP_ALG_NONE);
 
       let nameDS = '';
+      let lastDsRecord = null;
       let recIndex = 0;
 
       for (const rh of this.recordHolders) {
@@ -326,10 +329,11 @@ class PqFile {
           this.loggerApplication.log(recIndex + ': Adding Container', LogLevels.Info);
           const container = rh.record;
 
+          const tcPq = container.creation instanceof Date ? dateToPqdifTimestamp(container.creation) : container.creation;
           controller.createContainerRecord(
             newFileName,
             container.versionInfo,
-            container.creation,
+            tcPq,
             container.versionInfo[0] || 0,
             container.versionInfo[1] || 0,
             container.versionInfo[2] || 0,
@@ -366,20 +370,62 @@ class PqFile {
             removePI ? '' : ds.locationDS,
             removePI ? '' : ds.timeZoneDS
           );
+
+          // Populate channel definitions and series definitions
+          const dsRecord = controller.getRecord(recIndex);
+          if (dsRecord) {
+            lastDsRecord = dsRecord;
+            for (const chDefn of ds.channelDefns) {
+              const chName = removePI ? '' : chDefn.channelName;
+              const chDefnIdx = dsRecord.addChannelDefn2(chName, chDefn.phaseID, chDefn.quantityMeasuredID, chDefn.quantityTypeID);
+              for (const sd of chDefn.seriesDefns) {
+                const sdIdx = dsRecord.addSeriesDefn2(chDefnIdx, sd.quantityUnitsID, sd.valueTypeID, sd.quantityCharacteristicID, sd.storageMethodID);
+                if (sd.seriesNominalQuantity !== null) dsRecord.setSeriesDefnNominal(chDefnIdx, sdIdx, sd.seriesNominalQuantity);
+                if (sd.quantitySignificantDigitsID !== null) dsRecord.setSeriesDefnDigits(chDefnIdx, sdIdx, sd.quantitySignificantDigitsID);
+                if (sd.hintDefaultDisplayID !== null) dsRecord.setSeriesDefnDisplay(chDefnIdx, sdIdx, sd.hintDefaultDisplayID);
+                if (sd.hintGreekPrefixID !== null) dsRecord.setSeriesDefnPrefix(chDefnIdx, sdIdx, sd.hintGreekPrefixID);
+                if (sd.quantityResolutionID !== null) dsRecord.setSeriesDefnResolution(chDefnIdx, sdIdx, sd.quantityResolutionID);
+              }
+            }
+          }
         }
 
         if (rh.recType === RecType.RecMonitorSettings) {
           this.loggerApplication.log(recIndex + ': Adding Monitor Settings Record', LogLevels.Info);
           const ms = rh.record;
 
+          const effPq = ms.effective instanceof Date ? dateToPqdifTimestamp(ms.effective) : ms.effective;
+          const instPq = ms.timeInstalled instanceof Date ? dateToPqdifTimestamp(ms.timeInstalled) : ms.timeInstalled;
+          const remPq = ms.timeRemoved instanceof Date ? dateToPqdifTimestamp(ms.timeRemoved) : ms.timeRemoved;
+
           controller.createMonitorSettingsRecord(
             recIndex,
-            ms.effective,
-            ms.timeInstalled,
-            ms.timeRemoved,
+            effPq,
+            instPq,
+            remPq,
             ms.useCalibration,
             ms.useTransducer
           );
+
+          // Populate channel settings and optional properties
+          const msRecord = controller.getRecord(recIndex);
+          if (msRecord) {
+            if (ms.nominalFrequency !== null) msRecord.setNominalFrequency(ms.nominalFrequency);
+            for (let csIdx = 0; csIdx < ms.channelSettingsArray.length; csIdx++) {
+              const cs = ms.channelSettingsArray[csIdx];
+              if (cs.triggerTypeID !== null) {
+                msRecord.addChannelWithTrigger(cs.channelDefnIdx, cs.triggerTypeID);
+              } else {
+                msRecord.addChannel(cs.channelDefnIdx);
+              }
+              if (cs.xdTransformerTypeID !== null && cs.xdSystemSideRatio !== null && cs.xdMonitorSideRatio !== null) {
+                msRecord.setChanTrans(csIdx, cs.xdTransformerTypeID, cs.xdSystemSideRatio, cs.xdMonitorSideRatio, cs.xdFrequencyResponse);
+              }
+              if (cs.calTimeSkew !== null && cs.calOffset !== null && cs.calRatio !== null) {
+                msRecord.setChanCal(csIdx, cs.calTimeSkew, cs.calOffset, cs.calRatio, cs.calMustUseARCal, cs.calApplied, cs.calRecorded);
+              }
+            }
+          }
         }
 
         if (rh.recType === RecType.RecObservation) {
@@ -389,16 +435,83 @@ class PqFile {
           let obsName = obs.observationName;
           if (removePI) obsName = nameDS + ' ' + obs.timeStart.toISOString();
 
+          const tcPq = obs.timeCreate instanceof Date ? dateToPqdifTimestamp(obs.timeCreate) : obs.timeCreate;
+          const tsPq = obs.timeStart instanceof Date ? dateToPqdifTimestamp(obs.timeStart) : obs.timeStart;
+          const ttPq = obs.timeTriggered instanceof Date ? dateToPqdifTimestamp(obs.timeTriggered) : obs.timeTriggered;
+
           controller.createObservationRecord(
             recIndex,
             obsName,
-            obs.timeCreate,
-            obs.timeStart,
+            tcPq,
+            tsPq,
             obs.triggerMethodID,
-            obs.timeTriggered,
+            ttPq,
             obs.channelTriggerIdx ? obs.channelTriggerIdx.length : 0,
             obs.channelTriggerIdx
           );
+
+          // Populate channel instances and series
+          const obsRaw = controller.getRecord(recIndex);
+          if (obsRaw) {
+            const obsRec = new ObservationRecord(obsRaw);
+            if (lastDsRecord) obsRec.setDataSource(lastDsRecord);
+
+            for (const ci of obs.channelInstances) {
+              const chIdx = obsRec.addChannel(ci.channelDefnIdx);
+
+              // Set channel frequency if present
+              if (ci.channelFrequency !== null) {
+                const pcolOneChannel = obsRec.getOneChannel(chIdx);
+                if (pcolOneChannel) {
+                  let psc = Record.findScalarInCollection(pcolOneChannel, tagGuids.tagChannelFrequency);
+                  if (!psc) {
+                    const f = require('../core/factory');
+                    psc = f.newElement(2);
+                    if (psc) {
+                      psc.setTag(tagGuids.tagChannelFrequency);
+                      pcolOneChannel.add(psc);
+                    }
+                  }
+                  if (psc) psc.setValueREAL8(ci.channelFrequency);
+                }
+              }
+
+              // Set channel group ID if present
+              if (ci.channelGroupID !== null) {
+                const pcolOneChannel = obsRec.getOneChannel(chIdx);
+                if (pcolOneChannel) {
+                  let psc = Record.findScalarInCollection(pcolOneChannel, tagGuids.tagChannelGroupID);
+                  if (!psc) {
+                    const f = require('../core/factory');
+                    psc = f.newElement(2);
+                    if (psc) {
+                      psc.setTag(tagGuids.tagChannelGroupID);
+                      pcolOneChannel.add(psc);
+                    }
+                  }
+                  if (psc) psc.setValueUINT4(ci.channelGroupID);
+                }
+              }
+
+              // Add series instances
+              for (const si of ci.seriesInstances) {
+                if (si.seriesValues !== null) {
+                  const values = Array.isArray(si.seriesValues) ? si.seriesValues : Array.from(si.seriesValues);
+                  const seriesIdx = obsRec.addSeriesDouble(chIdx, values.length, values);
+
+                  if (isNumeric(si.seriesScale) && isNumeric(si.seriesOffset)) {
+                    obsRec.setSeriesScale(chIdx, seriesIdx, si.seriesScale, si.seriesOffset);
+                  }
+
+                  if (si.seriesBaseQuantity !== null) {
+                    obsRec.setSeriesBaseQuantity(chIdx, seriesIdx, si.seriesBaseQuantity);
+                  }
+                } else if (si.seriesShareChannelIdx !== null && si.seriesShareSeriesIdx !== null) {
+                  obsRec.addSeriesShared(chIdx, si.seriesShareChannelIdx, si.seriesShareSeriesIdx);
+                }
+              }
+            }
+          }
         }
 
         recIndex++;
@@ -440,16 +553,14 @@ class PqFile {
    * @returns {Date|null}
    */
   getTimeStartMin() {
-    let found = false;
-    let min = new Date(Date.MAX_VALUE);
+    let min = null;
     for (const rh of this.recordHolders) {
       if (rh.recType === RecType.RecObservation) {
-        found = true;
         const obs = rh.record;
-        if (obs.timeStart < min) min = obs.timeStart;
+        if (obs.timeStart && (!min || obs.timeStart < min)) min = obs.timeStart;
       }
     }
-    return found ? min : null;
+    return min;
   }
 
   /**
@@ -457,16 +568,14 @@ class PqFile {
    * @returns {Date|null}
    */
   getTimeStartMax() {
-    let found = false;
-    let max = new Date(Date.MIN_VALUE);
+    let max = null;
     for (const rh of this.recordHolders) {
       if (rh.recType === RecType.RecObservation) {
-        found = true;
         const obs = rh.record;
-        if (obs.timeStart > max) max = obs.timeStart;
+        if (obs.timeStart && (!max || obs.timeStart > max)) max = obs.timeStart;
       }
     }
-    return found ? max : null;
+    return max;
   }
 
   /**
@@ -837,6 +946,255 @@ class PqFile {
     }
 
     return { min: tsMin, max: tsMax };
+  }
+
+  /**
+   * Find the overall min/max timestamps across all observations.
+   * @returns {{ min: Date|null, max: Date|null }}
+   */
+  getTimeStampMinMax() {
+    let min = null;
+    let max = null;
+    for (const rh of this.recordHolders) {
+      if (rh.recType === RecType.RecObservation) {
+        const obs = rh.record;
+        if (obs.timeStart) {
+          if (!min || obs.timeStart < min) min = obs.timeStart;
+          if (!max || obs.timeStart > max) max = obs.timeStart;
+        }
+      }
+    }
+    return { min, max };
+  }
+
+  /**
+   * Get unique list of quantity type GUIDs from channel definitions.
+   * If recordHolder and observation are provided, only look at that record's data source.
+   * Otherwise look at all data sources.
+   * @param {RecordHolder} [recordHolder]
+   * @param {Observation} [observation]
+   * @returns {Buffer[]}
+   */
+  getQuantityTypeIDs(recordHolder, observation) {
+    if (recordHolder && observation) {
+      return this._getQuantityTypeIDsForRecord(recordHolder, observation);
+    }
+    // Collect from all observation records
+    const result = [];
+    const seen = new Set();
+    for (const rh of this.recordHolders) {
+      if (rh.recType === RecType.RecObservation) {
+        const obs = rh.record;
+        const ids = this._getQuantityTypeIDsForRecord(rh, obs);
+        for (const id of ids) {
+          const hex = id.toString('hex');
+          if (!seen.has(hex)) {
+            seen.add(hex);
+            result.push(id);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @private
+   */
+  _getQuantityTypeIDsForRecord(recordHolder, observation) {
+    const result = [];
+    if (recordHolder.recType !== RecType.RecObservation || !recordHolder.dataSource) return result;
+    const ds = recordHolder.dataSource;
+    for (const ci of observation.channelInstances) {
+      const chDefn = ci.getChannelDefn(ds);
+      if (chDefn && chDefn.quantityTypeID) {
+        const hex = chDefn.quantityTypeID.toString('hex');
+        if (!result.some(r => r.toString('hex') === hex)) {
+          result.push(chDefn.quantityTypeID);
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Get unique list of phase IDs from channel definitions.
+   * @param {RecordHolder} [recordHolder]
+   * @param {Observation} [observation]
+   * @returns {number[]}
+   */
+  getPhaseIDs(recordHolder, observation) {
+    if (recordHolder && observation) {
+      return this._getPhaseIDsForRecord(recordHolder, observation);
+    }
+    const result = [];
+    for (const rh of this.recordHolders) {
+      if (rh.recType === RecType.RecObservation) {
+        const obs = rh.record;
+        const ids = this._getPhaseIDsForRecord(rh, obs);
+        for (const id of ids) {
+          if (!result.includes(id)) result.push(id);
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @private
+   */
+  _getPhaseIDsForRecord(recordHolder, observation) {
+    const result = [];
+    if (recordHolder.recType !== RecType.RecObservation || !recordHolder.dataSource) return result;
+    const ds = recordHolder.dataSource;
+    for (const ci of observation.channelInstances) {
+      const chDefn = ci.getChannelDefn(ds);
+      if (chDefn && chDefn.phaseID !== undefined && !result.includes(chDefn.phaseID)) {
+        result.push(chDefn.phaseID);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Get unique list of quantity measured IDs from channel definitions.
+   * @param {RecordHolder} [recordHolder]
+   * @param {Observation} [observation]
+   * @returns {number[]}
+   */
+  getQuantityMeasuredIDs(recordHolder, observation) {
+    if (recordHolder && observation) {
+      return this._getQuantityMeasuredIDsForRecord(recordHolder, observation);
+    }
+    const result = [];
+    for (const rh of this.recordHolders) {
+      if (rh.recType === RecType.RecObservation) {
+        const obs = rh.record;
+        const ids = this._getQuantityMeasuredIDsForRecord(rh, obs);
+        for (const id of ids) {
+          if (!result.includes(id)) result.push(id);
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @private
+   */
+  _getQuantityMeasuredIDsForRecord(recordHolder, observation) {
+    const result = [];
+    if (recordHolder.recType !== RecType.RecObservation || !recordHolder.dataSource) return result;
+    const ds = recordHolder.dataSource;
+    for (const ci of observation.channelInstances) {
+      const chDefn = ci.getChannelDefn(ds);
+      if (chDefn && chDefn.quantityMeasuredID !== undefined && !result.includes(chDefn.quantityMeasuredID)) {
+        result.push(chDefn.quantityMeasuredID);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Get unique list of quantity characteristic GUIDs from series definitions.
+   * @param {RecordHolder} [recordHolder]
+   * @param {Observation} [observation]
+   * @returns {Buffer[]}
+   */
+  getQuantityCharacteristicIDs(recordHolder, observation) {
+    if (recordHolder && observation) {
+      return this._getQuantityCharacteristicIDsForRecord(recordHolder, observation);
+    }
+    const result = [];
+    const seen = new Set();
+    for (const rh of this.recordHolders) {
+      if (rh.recType === RecType.RecObservation) {
+        const obs = rh.record;
+        const ids = this._getQuantityCharacteristicIDsForRecord(rh, obs);
+        for (const id of ids) {
+          const hex = id.toString('hex');
+          if (!seen.has(hex)) {
+            seen.add(hex);
+            result.push(id);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @private
+   */
+  _getQuantityCharacteristicIDsForRecord(recordHolder, observation) {
+    const result = [];
+    if (recordHolder.recType !== RecType.RecObservation || !recordHolder.dataSource) return result;
+    const ds = recordHolder.dataSource;
+    for (const ci of observation.channelInstances) {
+      const chDefn = ci.getChannelDefn(ds);
+      if (chDefn) {
+        for (const sd of chDefn.seriesDefns) {
+          if (sd.quantityCharacteristicID) {
+            const hex = sd.quantityCharacteristicID.toString('hex');
+            if (!result.some(r => r.toString('hex') === hex)) {
+              result.push(sd.quantityCharacteristicID);
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Get unique list of value type GUIDs from series definitions.
+   * @param {RecordHolder} [recordHolder]
+   * @param {Observation} [observation]
+   * @returns {Buffer[]}
+   */
+  getValueTypeIDs(recordHolder, observation) {
+    if (recordHolder && observation) {
+      return this._getValueTypeIDsForRecord(recordHolder, observation);
+    }
+    const result = [];
+    const seen = new Set();
+    for (const rh of this.recordHolders) {
+      if (rh.recType === RecType.RecObservation) {
+        const obs = rh.record;
+        const ids = this._getValueTypeIDsForRecord(rh, obs);
+        for (const id of ids) {
+          const hex = id.toString('hex');
+          if (!seen.has(hex)) {
+            seen.add(hex);
+            result.push(id);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @private
+   */
+  _getValueTypeIDsForRecord(recordHolder, observation) {
+    const result = [];
+    if (recordHolder.recType !== RecType.RecObservation || !recordHolder.dataSource) return result;
+    const ds = recordHolder.dataSource;
+    for (const ci of observation.channelInstances) {
+      const chDefn = ci.getChannelDefn(ds);
+      if (chDefn) {
+        for (const sd of chDefn.seriesDefns) {
+          if (sd.valueTypeID) {
+            const hex = sd.valueTypeID.toString('hex');
+            if (!result.some(r => r.toString('hex') === hex)) {
+              result.push(sd.valueTypeID);
+            }
+          }
+        }
+      }
+    }
+    return result;
   }
 
   /**

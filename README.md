@@ -196,6 +196,27 @@ The JSON output contains:
 }
 ```
 
+#### JSON Field Reference
+
+| Record Type | Key Fields |
+|-------------|-----------|
+| **Container** | `versionInfo`, `fileName`, `creation`, `compressionStyleID`, `compressionAlgorithmID`, `language`, `title`, `author`, `owner`, `application`, `contact` |
+| **DataSource** | `name`, `dataSourceTypeID`, `vendorID`, `equipmentID`, `serialNumber`, `channelDefinitions[]`, `customSourceInfo` |
+| **MonitorSettings** | `effective`, `useCalibration`, `useTransducer`, `nominalFrequency`, `channelSettings[]` |
+| **Observation** | `observationName`, `timeStart`, `timeCreate`, `triggerMethodID`, `channelInstances[]`, `characterization` |
+
+**ChannelDefinition:** `channelName`, `phaseID`, `quantityTypeID`, `quantityMeasuredID`, `seriesDefinitions[]`
+
+**SeriesDefinition:** `valueTypeID`, `quantityUnitsID`, `quantityCharacteristicID`, `storageMethodID`, `seriesNominalQuantity`
+
+**ChannelInstance:** `channelDefnIdx`, `seriesInstances[]`, `channelFrequency`, `channelGroupID`
+
+**SeriesInstance:** `seriesValues[]`, `seriesBaseQuantity`, `seriesScale`, `seriesOffset`, `seriesShareChannelIdx`, `seriesShareSeriesIdx`
+
+**ChannelSetting:** `channelDefnIdx`, `triggerTypeID`, `fullScale`, `noiseFloor`, `transformer`, `calibration`, `triggerThresholds`
+
+GUIDs are hex strings. Dates are ISO 8601. Typed arrays are plain number arrays. Full field documentation: [docs/json-fields.md](docs/json-fields.md)
+
 #### CSV Export
 
 ```js

@@ -273,6 +273,9 @@ class Record {
     const serializer = new Serializer();
     serializer.reinitialize(stream.getPos());
 
+    // Reset checksum before writing
+    stream.resetChecksum();
+
     const result = serializer.bufferUpCollection(this.mainCollection);
     if (!result) return false;
 
@@ -280,6 +283,10 @@ class Record {
     stream.beginBlock();
     stream.appendBlock(serializer.getBuffer(), serializer.getSize());
     stream.writeBlock();
+
+    // Update header with checksum and body size
+    this.headerRecord.checksum = stream.getChecksum();
+    this.headerRecord.sizeData = serializer.getSize();
 
     return true;
   }

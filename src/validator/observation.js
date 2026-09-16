@@ -162,6 +162,13 @@ class Observation {
       }
     }
 
+    // Check required tags
+    if (!obs.observationName) obs.loggerCompliance.log('Required tagObservationName is Missing.', LogLevels.Error);
+    if (obs.timeCreate.getTime() === 0) obs.loggerCompliance.log('Required tagTimeCreate is Missing.', LogLevels.Error);
+    if (obs.timeStart.getTime() === 0) obs.loggerCompliance.log('Required tagTimeStart is Missing.', LogLevels.Error);
+    if (obs.triggerMethodID === 0) obs.loggerCompliance.log('Required tagTriggerMethodID is Missing.', LogLevels.Error);
+    if (obs.channelInstances.length === 0) obs.loggerCompliance.log('Required tagChannelInstances is Missing.', LogLevels.Error);
+
     return obs;
   }
 

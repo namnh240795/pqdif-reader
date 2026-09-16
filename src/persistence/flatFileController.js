@@ -10,6 +10,8 @@ const { RECORD_HEADER_SIZE } = require('../constants/physicalTypes');
 const { ID_COMP_ALG_NONE, ID_COMP_ALG_ZLIB, ID_COMP_STYLE_NONE, ID_COMP_STYLE_RECORDLEVEL, ID_COMP_STYLE_TOTALFILE } = require('../constants/compressionIds');
 const { PqdifInfo } = require('../info/info');
 const tagGuids = require('../constants/tagGuids');
+const factory = require('../core/factory');
+const { Collection } = require('../core/collection');
 
 /**
  * Flat file persistence controller.
@@ -231,6 +233,7 @@ class FlatFileController extends PersistenceController {
 
     // Clean up old stream/processors
     this._cleanup();
+    this.records = [];
 
     if (!chunk || size <= 0) {
       return { status: false, compressed: false };
@@ -247,60 +250,89 @@ class FlatFileController extends PersistenceController {
     // Read first header with Nothing processor
     this.stream.connectProcessor(this.processorHeader);
 
-    // Read first record header
-    const headerResult = this.stream.readBlock(RECORD_HEADER_SIZE);
-    if (!headerResult) {
-      return { status: false, compressed: false };
-    }
+    let posNext = 0;
 
-    const headerBuf = headerResult.data;
-    const sizeHeader = headerBuf.readInt32LE(32);
-    const sizeData = headerBuf.readInt32LE(36);
-    let posNext = headerBuf.readInt32LE(40);
+    // Create first record and read its header
+    let precord = factory.newRecord('Record');
+    if (precord) {
+      const headerResult = this.stream.readBlock(RECORD_HEADER_SIZE);
+      if (!headerResult) {
+        return { status: false, compressed: false };
+      }
 
-    // Read the first record body
-    this.stream.connectProcessor(this.processorBody);
-    const bodyResult = this.stream.readBlock(sizeData);
-    if (!bodyResult) {
-      return { status: false, compressed: false };
-    }
-
-    // Parse container compression info
-    const foundCompInfo = this._parseContainerCompression(bodyResult.data, bodyResult.size);
-
-    if (foundCompInfo) {
-      switch (this.compressionStyle) {
-        case ID_COMP_STYLE_TOTALFILE:
-          // Unsupported
+      status = precord.readHeader(headerResult.data, 0);
+      if (status) {
+        posNext = precord.getHeaderPosNextRecord();
+        // Read the first record body (uncompressed for container)
+        this.stream.connectProcessor(this.processorBody);
+        const sizeData = precord.getHeaderSize();
+        const bodyResult = this.stream.readBlock(sizeData);
+        if (!bodyResult) {
           return { status: false, compressed: false };
+        }
 
-        case ID_COMP_STYLE_RECORDLEVEL:
-          // Switch to the appropriate body processor
-          this.processorBody = this._createProcessor(this.compressionAlgorithm);
-          if (this.processorBody) {
-            bCompressed = true;
-          } else {
-            return { status: false, compressed: false };
+        // Parse container compression info from the body buffer
+        const foundCompInfo = this._parseContainerCompression(bodyResult.data, bodyResult.size);
+
+        if (foundCompInfo) {
+          switch (this.compressionStyle) {
+            case ID_COMP_STYLE_TOTALFILE:
+              // Unsupported
+              return { status: false, compressed: false };
+
+            case ID_COMP_STYLE_RECORDLEVEL:
+              // Switch to the appropriate body processor
+              this.processorBody = this._createProcessor(this.compressionAlgorithm);
+              if (this.processorBody) {
+                bCompressed = true;
+              } else {
+                return { status: false, compressed: false };
+              }
+              break;
+
+            case ID_COMP_STYLE_NONE:
+            default:
+              // No compression
+              break;
           }
-          break;
+        }
 
-        case ID_COMP_STYLE_NONE:
-        default:
-          // No compression
-          break;
+        // Parse the body into a Collection and set on the record
+        if (bodyResult.data.length > 0) {
+          const mainCollection = new Collection();
+          const pqController = new PQController(mainCollection);
+          pqController.parseRecord(bodyResult.data, 0, bodyResult.data.length);
+          precord.setMainCollection(mainCollection);
+        }
+
+        // Add the first record to the array
+        this.records.push(precord);
       }
     }
 
-    status = true;
-
-    // Read through remaining record headers
+    // Read through remaining record headers and create Record objects
     while (status && posNext > 0 && posNext < size) {
       this.stream.seekPos(posNext);
 
       const nextHeaderResult = this.stream.readBlock(RECORD_HEADER_SIZE);
       if (!nextHeaderResult) break;
 
+      const nextRecord = factory.newRecord('Record');
+      if (nextRecord) {
+        const headerStatus = nextRecord.readHeader(nextHeaderResult.data, 0);
+        if (headerStatus) {
+          this.records.push(nextRecord);
+        }
+      }
+
       posNext = nextHeaderResult.data.readInt32LE(40);
+    }
+
+    // Read all record bodies eagerly
+    if (status) {
+      for (let idxRec = 0; idxRec < this.records.length; idxRec++) {
+        this.getRecordFull(idxRec);
+      }
     }
 
     if (status) {
@@ -347,14 +379,34 @@ class FlatFileController extends PersistenceController {
       const headerResult = this.stream.readBlock(RECORD_HEADER_SIZE);
       if (!headerResult) break;
 
-      const headerBuf = headerResult.data;
-      const sizeData = headerBuf.readInt32LE(36);
-      posNext = headerBuf.readInt32LE(40);
+      // Create a Record object and read its header
+      const precord = factory.newRecord('Record');
+      if (precord) {
+        const headerStatus = precord.readHeader(headerResult.data, 0);
+        if (headerStatus) {
+          posNext = precord.getHeaderPosNextRecord();
 
-      // Read body
-      this.stream.connectProcessor(this.processorBody);
-      const bodyResult = this.stream.readBlock(sizeData);
-      if (!bodyResult) break;
+          // Read body
+          this.stream.connectProcessor(this.processorBody);
+          const sizeData = precord.getHeaderSize();
+          const bodyResult = this.stream.readBlock(sizeData);
+          if (!bodyResult) break;
+
+          // Parse body into a Collection and set on the record
+          if (bodyResult.data.length > 0) {
+            const mainCollection = new Collection();
+            const pqController = new PQController(mainCollection);
+            pqController.parseRecord(bodyResult.data, 0, bodyResult.data.length);
+            precord.setMainCollection(mainCollection);
+          }
+
+          this.records.push(precord);
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
 
       if (posNext === 0) break;
     }
@@ -412,76 +464,61 @@ class FlatFileController extends PersistenceController {
     }
 
     const countRecords = this.records.length;
-    let posNextRecord = 0;
 
+    // Serialize all record bodies to buffers first to determine sizes
+    const { Serializer } = require('../serialization/serializer');
+    const bodyBuffers = [];
     for (let idxRecord = 0; idxRecord < countRecords; idxRecord++) {
       const precord = this.records[idxRecord];
-      if (!precord) break;
-
-      // Set initial header position
-      if (precord.headerSetPos) {
-        precord.headerSetPos(posNextRecord);
+      if (!precord || !precord.mainCollection) {
+        bodyBuffers.push(Buffer.alloc(0));
+        continue;
       }
-
-      // Get header sizes
-      let sizeHeader = RECORD_HEADER_SIZE;
-      let sizeBody = 0;
-      if (precord.headerGetSize) {
-        const sizes = precord.headerGetSize();
-        if (sizes.header > 0) sizeHeader = sizes.header;
-        if (sizes.body > 0) sizeBody = sizes.body;
+      const serializer = new Serializer();
+      serializer.reinitialize(0);
+      const result = serializer.bufferUpCollection(precord.mainCollection);
+      if (result) {
+        bodyBuffers.push(Buffer.from(serializer.getBuffer().subarray(0, result.size)));
+      } else {
+        bodyBuffers.push(Buffer.alloc(0));
       }
+    }
 
-      const posCurrentRecordBody = posNextRecord + sizeHeader;
+    // Calculate positions: header + body for each record
+    const positions = [];
+    let pos = 0;
+    for (let i = 0; i < countRecords; i++) {
+      positions.push({ headerPos: pos, bodyPos: pos + RECORD_HEADER_SIZE, bodySize: bodyBuffers[i].length });
+      pos += RECORD_HEADER_SIZE + bodyBuffers[i].length;
+    }
 
-      // Seek to the body start position (past the header space)
-      if (writeStream.seekPos) {
-        writeStream.seekPos(posCurrentRecordBody);
-      }
+    // Write headers
+    writeStream.connectProcessor(procHeader);
+    for (let idxRecord = 0; idxRecord < countRecords; idxRecord++) {
+      const precord = this.records[idxRecord];
+      if (!precord) continue;
+      const p = positions[idxRecord];
+      const nextPos = idxRecord < countRecords - 1 ? positions[idxRecord + 1].headerPos : 0;
+      if (precord.headerSetPos) precord.headerSetPos(p.headerPos);
+      if (precord.headerSetSize) precord.headerSetSize(RECORD_HEADER_SIZE, p.bodySize);
+      if (precord.headerSetPosNextRecord) precord.headerSetPosNextRecord(nextPos);
+      if (writeStream.seekPos) writeStream.seekPos(p.headerPos);
+      if (precord.WriteHeader) precord.WriteHeader(writeStream);
+    }
 
-      // Write the body
+    // Write bodies
+    for (let idxRecord = 0; idxRecord < countRecords; idxRecord++) {
+      const p = positions[idxRecord];
+      if (p.bodySize === 0) continue;
+      if (writeStream.seekPos) writeStream.seekPos(p.bodyPos);
       if (idxRecord === 0) {
         writeStream.connectProcessor(procBodyFirstRecord);
       } else {
         writeStream.connectProcessor(procBody);
       }
-
-      if (precord.writeBodyStream) {
-        precord.writeBodyStream(writeStream);
-      } else if (precord.writeBody) {
-        precord.writeBody(writeStream);
-      }
-
-      // Determine where next record starts
-      posNextRecord = writeStream.getPos();
-
-      // Update body size
-      sizeBody = posNextRecord - posCurrentRecordBody;
-      if (precord.headerSetSize) {
-        precord.headerSetSize(sizeHeader, sizeBody);
-      }
-
-      // Set next record pointer (0 for last record)
-      if (idxRecord === countRecords - 1) {
-        posNextRecord = 0;
-      }
-      if (precord.headerSetPosNextRecord) {
-        precord.headerSetPosNextRecord(posNextRecord);
-      }
-
-      // Save the current position (end of body)
-      const posAfterBody = writeStream.getPos();
-
-      // Write the header at the record's position
-      writeStream.connectProcessor(procHeader);
-      if (precord.WriteHeader) {
-        precord.WriteHeader(writeStream);
-      }
-
-      // Seek back to the end of body for the next record
-      if (writeStream.seekPos) {
-        writeStream.seekPos(posAfterBody);
-      }
+      writeStream.beginBlock();
+      writeStream.appendBlock(bodyBuffers[idxRecord], p.bodySize);
+      writeStream.writeBlock();
     }
 
     writeStream.flush();
@@ -503,6 +540,87 @@ class FlatFileController extends PersistenceController {
    */
   writeRecordsToFile() {
     return this.writeNew();
+  }
+
+  /**
+   * Write only changed records incrementally to the existing file.
+   *
+   * Ported from C++ CPQDIF_PC_FlatFile::WriteIncremental()
+   *
+   * Finds the end of the current file, then for each changed record,
+   * reads its body from the old stream, writes it at the end of the file,
+   * and updates the linkNextRecord pointer of the previous last record.
+   *
+   * @returns {boolean} True on success
+   */
+  writeIncremental() {
+    if (!this.stream) {
+      return false;
+    }
+
+    const countRecords = this.records.length;
+    let posNextNewRecord = 0;
+
+    // Find the end of the file by scanning all record positions
+    for (let idxRecord = 1; idxRecord < countRecords; idxRecord++) {
+      const precord = this.records[idxRecord];
+      if (precord) {
+        const posCurrentRecord = precord.getHeaderPos();
+        const sizes = precord.getHeaderSize();
+        const sizeHeader = sizes.header || RECORD_HEADER_SIZE;
+        const sizeBody = sizes.body || 0;
+        const posCurrentRecordEnd = posCurrentRecord + sizeHeader + sizeBody;
+
+        if (posNextNewRecord < posCurrentRecordEnd) {
+          posNextNewRecord = posCurrentRecordEnd;
+        }
+      }
+    }
+
+    // Iterate through records starting from index 1 (skip container)
+    for (let idxRecord = 1; idxRecord < countRecords; idxRecord++) {
+      const precord = this.records[idxRecord];
+      const precordPrevious = idxRecord > 0 ? this.records[idxRecord - 1] : null;
+      if (!precord || !precordPrevious) break;
+
+      // Skip unchanged records
+      if (!precord.getChanged()) continue;
+
+      // This record now requires a new location at posNextNewRecord
+      const posCurrentRecord = posNextNewRecord;
+      const sizes = precord.getHeaderSize();
+      const sizeHeader = sizes.header || RECORD_HEADER_SIZE;
+      const posCurrentRecordBody = posCurrentRecord + sizeHeader;
+
+      // Read the body from the old stream and write it at the new position
+      this.stream.connectProcessor(this.processorBody);
+      if (precord.writeBodyStream) {
+        precord.writeBodyStream(this.stream);
+      } else if (precord.writeBody) {
+        precord.writeBody(this.stream);
+      }
+      posNextNewRecord = this.stream.getPos();
+
+      // Update header info
+      precord.headerSetPos(posCurrentRecord);
+      const sizeBody = posNextNewRecord - posCurrentRecordBody;
+      precord.headerSetSize(sizeHeader, sizeBody);
+
+      if (idxRecord === countRecords - 1) {
+        precord.headerSetPosNextRecord(0);
+      }
+
+      // Write the header at the record's position
+      this.stream.connectProcessor(this.processorHeader);
+      precord.WriteHeader(this.stream);
+
+      // Update and write the header for the previous record
+      precordPrevious.headerSetPosNextRecord(posCurrentRecord);
+      this.stream.connectProcessor(this.processorHeader);
+      precordPrevious.WriteHeader(this.stream);
+    }
+
+    return true;
   }
 
   /**
@@ -618,11 +736,25 @@ class FlatFileController extends PersistenceController {
       return prec;
     }
 
-    // Connect the body processor and read the body
+    // Skip if body already parsed (has elements in mainCollection)
+    if (prec.getMainCollection() && prec.getMainCollection().getCount && prec.getMainCollection().getCount() > 0) {
+      return prec;
+    }
+
+    // Read the body from the stream
     this.stream.connectProcessor(this.processorBody);
-    if (prec.ReadBody) {
-      const status = prec.ReadBody(this.stream);
-      if (!status) return null;
+    const sizeData = prec.getHeaderSize();
+    if (sizeData <= 0) return prec;
+
+    const bodyResult = this.stream.readBlock(sizeData);
+    if (!bodyResult || !bodyResult.data) return null;
+
+    // Parse the body into a Collection
+    if (bodyResult.data.length > 0) {
+      const mainCollection = new Collection();
+      const pqController = new PQController(mainCollection);
+      pqController.parseRecord(bodyResult.data, 0, bodyResult.data.length);
+      prec.setMainCollection(mainCollection);
     }
 
     return prec;

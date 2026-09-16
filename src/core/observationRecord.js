@@ -275,11 +275,13 @@ class ObservationRecord extends Record {
     }
 
     // Time triggered
-    if (status) {
-      const psc2 = Record.findScalarInCollection(pcollMain, tagTimeTriggered);
-      if (psc2) {
-        const r = psc2.getValueTimeStamp();
-        if (r.status) out.timeTriggered = r.value;
+    status = false;
+    const psc2 = Record.findScalarInCollection(pcollMain, tagTimeTriggered);
+    if (psc2) {
+      const r = psc2.getValueTimeStamp();
+      if (r.status) {
+        out.timeTriggered = r.value;
+        status = true;
       }
     }
 

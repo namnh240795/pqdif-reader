@@ -6,6 +6,7 @@ const { LogLevels } = require('../logger');
 const tagGuids = require('../constants/tagGuids');
 const { xmlGetElement } = require('./utilities');
 const SeriesDefinition = require('./seriesDefinition');
+const idGuids = require('../constants/idGuids');
 
 /**
  * Channel definition - ported from OneChannelDefn.cs.
@@ -111,8 +112,160 @@ class ChannelDefinition {
 
     // Check required tags
     if (count === 0) defn.loggerCompliance.log('tagChannelDefns Must have at least tagOneChannelDefn Record.', LogLevels.Error);
+    if (defn.phaseID === 0) defn.loggerCompliance.log('Required tagPhaseID is Missing.', LogLevels.Error);
+    if (!defn.quantityTypeID) defn.loggerCompliance.log('Required tagQuantityTypeID is Missing.', LogLevels.Error);
+    if (defn.quantityMeasuredID === 0) defn.loggerCompliance.log('Required tagQuantityMeasuredID is Missing.', LogLevels.Error);
+    if (defn.seriesDefns.length === 0) defn.loggerCompliance.log('Required tagSeriesDefns is Missing.', LogLevels.Error);
+
+    // Validate series definitions for quantity type
+    ChannelDefinition.validateSeriesDefinitionsForQuantityType(defn);
 
     return defn;
+  }
+
+  /**
+   * Validate series definitions for the given quantity type.
+   * Ported from OneChannelDefn.cs lines 309-390.
+   * @param {ChannelDefinition} defn
+   */
+  static validateSeriesDefinitionsForQuantityType(defn) {
+    if (!defn.quantityTypeID || defn.seriesDefns.length === 0) return;
+
+    const vt = (idx) => {
+      if (idx < defn.seriesDefns.length && defn.seriesDefns[idx].valueTypeID) {
+        return defn.seriesDefns[idx].valueTypeID;
+      }
+      return null;
+    };
+    const eq = (a, b) => a !== null && b !== null && guidEquals(a, b);
+
+    const idTime = idGuids.ID_SERIES_VALUE_TYPE_TIME;
+    const idVal = idGuids.ID_SERIES_VALUE_TYPE_VAL;
+    const idFreq = idGuids.ID_SERIES_VALUE_TYPE_FREQUENCY;
+    const idBinId = idGuids.ID_SERIES_VALUE_TYPE_BINID;
+    const idBinHigh = idGuids.ID_SERIES_VALUE_TYPE_BINHIGH;
+    const idBinLow = idGuids.ID_SERIES_VALUE_TYPE_BINLOW;
+    const idCount = idGuids.ID_SERIES_VALUE_TYPE_COUNT;
+    const idStatus = idGuids.ID_SERIES_VALUE_TYPE_STATUS;
+    const idMin = idGuids.ID_SERIES_VALUE_TYPE_MIN;
+    const idMax = idGuids.ID_SERIES_VALUE_TYPE_MAX;
+    const idDuration = idGuids.ID_SERIES_VALUE_TYPE_DURATION;
+    const idInst = idGuids.ID_SERIES_VALUE_TYPE_INST;
+    const idPhaseAngle = idGuids.ID_SERIES_VALUE_TYPE_PHASEANGLE;
+    const idProb = idGuids.ID_SERIES_VALUE_TYPE_PROB;
+
+    const count = defn.seriesDefns.length;
+    const qt = defn.quantityTypeID;
+
+    if (guidEquals(qt, idGuids.ID_QT_WAVEFORM)) {
+      // WAVEFORM: expects 2 series (TIME + VAL)
+      if (count !== 2) {
+        defn.loggerCompliance.log('WAVEFORM channel should have 2 series definitions (TIME + VAL), found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idTime)) defn.loggerCompliance.log('WAVEFORM series[0] should be TIME.', LogLevels.Warning);
+        if (!eq(vt(1), idVal)) defn.loggerCompliance.log('WAVEFORM series[1] should be VAL.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_VALUELOG)) {
+      // VALUELOG: expects 2 series (TIME + VAL)
+      if (count !== 2) {
+        defn.loggerCompliance.log('VALUELOG channel should have 2 series definitions (TIME + VAL), found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idTime)) defn.loggerCompliance.log('VALUELOG series[0] should be TIME.', LogLevels.Warning);
+        if (!eq(vt(1), idVal)) defn.loggerCompliance.log('VALUELOG series[1] should be VAL.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_PHASOR)) {
+      // PHASOR: expects 2 series (TIME + VAL)
+      if (count !== 2) {
+        defn.loggerCompliance.log('PHASOR channel should have 2 series definitions (TIME + VAL), found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idTime)) defn.loggerCompliance.log('PHASOR series[0] should be TIME.', LogLevels.Warning);
+        if (!eq(vt(1), idVal)) defn.loggerCompliance.log('PHASOR series[1] should be VAL.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_RESPONSE)) {
+      // RESPONSE: expects 2 series (FREQ + VAL)
+      if (count !== 2) {
+        defn.loggerCompliance.log('RESPONSE channel should have 2 series definitions (FREQ + VAL), found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idFreq)) defn.loggerCompliance.log('RESPONSE series[0] should be FREQUENCY.', LogLevels.Warning);
+        if (!eq(vt(1), idVal)) defn.loggerCompliance.log('RESPONSE series[1] should be VAL.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_FLASH)) {
+      // FLASH: expects 1 series (VAL)
+      if (count !== 1) {
+        defn.loggerCompliance.log('FLASH channel should have 1 series definition (VAL), found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idVal)) defn.loggerCompliance.log('FLASH series[0] should be VAL.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_HISTOGRAM)) {
+      // HISTOGRAM: expects 3 series (BINID + BINHIGH + COUNT)
+      if (count !== 3) {
+        defn.loggerCompliance.log('HISTOGRAM channel should have 3 series definitions (BINID + BINHIGH + COUNT), found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idBinId)) defn.loggerCompliance.log('HISTOGRAM series[0] should be BINID.', LogLevels.Warning);
+        if (!eq(vt(1), idBinHigh)) defn.loggerCompliance.log('HISTOGRAM series[1] should be BINHIGH.', LogLevels.Warning);
+        if (!eq(vt(2), idCount)) defn.loggerCompliance.log('HISTOGRAM series[2] should be COUNT.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_HISTOGRAM3D)) {
+      // HISTOGRAM3D: expects 4 series (BINID + BINHIGH + BINLOW + COUNT)
+      if (count !== 4) {
+        defn.loggerCompliance.log('HISTOGRAM3D channel should have 4 series definitions (BINID + BINHIGH + BINLOW + COUNT), found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idBinId)) defn.loggerCompliance.log('HISTOGRAM3D series[0] should be BINID.', LogLevels.Warning);
+        if (!eq(vt(1), idBinHigh)) defn.loggerCompliance.log('HISTOGRAM3D series[1] should be BINHIGH.', LogLevels.Warning);
+        if (!eq(vt(2), idBinLow)) defn.loggerCompliance.log('HISTOGRAM3D series[2] should be BINLOW.', LogLevels.Warning);
+        if (!eq(vt(3), idCount)) defn.loggerCompliance.log('HISTOGRAM3D series[3] should be COUNT.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_CPF)) {
+      // CPF: expects 2 series (MAG + ANGLE) - using INST and PHASEANGLE as proxies
+      if (count !== 2) {
+        defn.loggerCompliance.log('CPF channel should have 2 series definitions (MAG + ANGLE), found ' + count + '.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_XY)) {
+      // XY: expects 2 series (X + Y) - using VAL for both as there's no separate X/Y type
+      if (count !== 2) {
+        defn.loggerCompliance.log('XY channel should have 2 series definitions (X + Y), found ' + count + '.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_XYZ)) {
+      // XYZ: expects 3 series
+      if (count !== 3) {
+        defn.loggerCompliance.log('XYZ channel should have 3 series definitions, found ' + count + '.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_MAGDUR)) {
+      // MAGDUR: expects multiple series (COUNT + STATUS + MIN_MAG + MAX_MAG + DURATION)
+      if (count < 5) {
+        defn.loggerCompliance.log('MAGDUR channel should have at least 5 series definitions (COUNT + STATUS + MIN_MAG + MAX_MAG + DURATION), found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idCount)) defn.loggerCompliance.log('MAGDUR series[0] should be COUNT.', LogLevels.Warning);
+        if (!eq(vt(1), idStatus)) defn.loggerCompliance.log('MAGDUR series[1] should be STATUS.', LogLevels.Warning);
+        if (!eq(vt(2), idMin)) defn.loggerCompliance.log('MAGDUR series[2] should be MIN.', LogLevels.Warning);
+        if (!eq(vt(3), idMax)) defn.loggerCompliance.log('MAGDUR series[3] should be MAX.', LogLevels.Warning);
+        if (!eq(vt(4), idDuration)) defn.loggerCompliance.log('MAGDUR series[4] should be DURATION.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_MAGDURTIME)) {
+      // MAGDURTIME: expects multiple series (COUNT + STATUS + TIME + MIN_MAG + MAX_MAG + DURATION)
+      if (count < 6) {
+        defn.loggerCompliance.log('MAGDURTIME channel should have at least 6 series definitions, found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idCount)) defn.loggerCompliance.log('MAGDURTIME series[0] should be COUNT.', LogLevels.Warning);
+        if (!eq(vt(1), idStatus)) defn.loggerCompliance.log('MAGDURTIME series[1] should be STATUS.', LogLevels.Warning);
+        if (!eq(vt(2), idTime)) defn.loggerCompliance.log('MAGDURTIME series[2] should be TIME.', LogLevels.Warning);
+        if (!eq(vt(3), idMin)) defn.loggerCompliance.log('MAGDURTIME series[3] should be MIN.', LogLevels.Warning);
+        if (!eq(vt(4), idMax)) defn.loggerCompliance.log('MAGDURTIME series[4] should be MAX.', LogLevels.Warning);
+        if (!eq(vt(5), idDuration)) defn.loggerCompliance.log('MAGDURTIME series[5] should be DURATION.', LogLevels.Warning);
+      }
+    } else if (guidEquals(qt, idGuids.ID_QT_MAGDURCOUNT)) {
+      // MAGDURCOUNT: expects multiple series (COUNT + STATUS + MIN_MAG + MAX_MAG + DURATION + COUNT2)
+      if (count < 6) {
+        defn.loggerCompliance.log('MAGDURCOUNT channel should have at least 6 series definitions, found ' + count + '.', LogLevels.Warning);
+      } else {
+        if (!eq(vt(0), idCount)) defn.loggerCompliance.log('MAGDURCOUNT series[0] should be COUNT.', LogLevels.Warning);
+        if (!eq(vt(1), idStatus)) defn.loggerCompliance.log('MAGDURCOUNT series[1] should be STATUS.', LogLevels.Warning);
+        if (!eq(vt(2), idMin)) defn.loggerCompliance.log('MAGDURCOUNT series[2] should be MIN.', LogLevels.Warning);
+        if (!eq(vt(3), idMax)) defn.loggerCompliance.log('MAGDURCOUNT series[3] should be MAX.', LogLevels.Warning);
+        if (!eq(vt(4), idDuration)) defn.loggerCompliance.log('MAGDURCOUNT series[4] should be DURATION.', LogLevels.Warning);
+        if (!eq(vt(5), idCount)) defn.loggerCompliance.log('MAGDURCOUNT series[5] should be COUNT.', LogLevels.Warning);
+      }
+    }
   }
 
   /**

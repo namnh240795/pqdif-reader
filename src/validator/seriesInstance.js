@@ -5,6 +5,12 @@ const { Logger } = require('../logger');
 const { LogLevels } = require('../logger');
 const tagGuids = require('../constants/tagGuids');
 const { xmlGetElement, isNumeric, fixNull } = require('./utilities');
+const { ID_PHYS_TYPE_REAL4, ID_PHYS_TYPE_REAL8, ID_PHYS_TYPE_UNS_INTEGER4,
+  ID_PHYS_TYPE_UNS_INTEGER2, ID_PHYS_TYPE_UNS_INTEGER1,
+  ID_PHYS_TYPE_INTEGER4, ID_PHYS_TYPE_INTEGER2, ID_PHYS_TYPE_INTEGER1,
+  ID_PHYS_TYPE_BOOLEAN1, ID_PHYS_TYPE_BOOLEAN2, ID_PHYS_TYPE_BOOLEAN4,
+  ID_PHYS_TYPE_TIMESTAMPPQDIF } = require('../constants/physicalTypes');
+const { ID_ELEMENT_TYPE_VECTOR } = require('../constants/elementTypes');
 
 /**
  * Series instance - ported from OneSeriesInstance.cs + GetSeriesValues.cs.
@@ -45,6 +51,10 @@ class SeriesInstance {
     const si = new SeriesInstance();
     if (!coll) return si;
 
+    let scalePhysType = null;
+    let offsetPhysType = null;
+    let valuesPhysType = null;
+
     const count = coll.getCount ? coll.getCount() : 0;
     for (let i = 0; i < count; i++) {
       const el = coll.getElement(i);
@@ -56,14 +66,23 @@ class SeriesInstance {
           si.seriesBaseQuantity = _getDoubleFromElement(el);
         } else if (guidEquals(tag, tagGuids.tagSeriesScale)) {
           si.seriesScale = _getDoubleFromElement(el);
+          if (typeof el.getPhysicalType === 'function') {
+            scalePhysType = el.getPhysicalType();
+          }
         } else if (guidEquals(tag, tagGuids.tagSeriesOffset)) {
           si.seriesOffset = _getDoubleFromElement(el);
+          if (typeof el.getPhysicalType === 'function') {
+            offsetPhysType = el.getPhysicalType();
+          }
         } else if (guidEquals(tag, tagGuids.tagSeriesShareChannelIdx)) {
           si.seriesShareChannelIdx = _getUintFromElement(el);
         } else if (guidEquals(tag, tagGuids.tagSeriesShareSeriesIdx)) {
           si.seriesShareSeriesIdx = _getUintFromElement(el);
         } else if (guidEquals(tag, tagGuids.tagSeriesValues)) {
           si.seriesValues = _getArrayFromElement(el);
+          if (typeof el.getPhysicalType === 'function') {
+            valuesPhysType = el.getPhysicalType();
+          }
         } else if (guidEquals(tag, tagGuids.tagBlank)) {
           // ignore
         } else {
@@ -83,6 +102,16 @@ class SeriesInstance {
       si.loggerCompliance.log('tagSeriesValues and tagSeriesShareChannelIdx are missing.', LogLevels.Error);
     } else if (missingValues && si.seriesShareSeriesIdx === null) {
       si.loggerCompliance.log('tagSeriesValues and tagSeriesShareSeriesIdx are missing.', LogLevels.Error);
+    }
+
+    // Physical type mismatch warnings for scale/offset vs values
+    if (valuesPhysType !== null) {
+      if (scalePhysType !== null && scalePhysType !== valuesPhysType) {
+        si.loggerCompliance.log('Physical type of tagSeriesScale does not match tagSeriesValues.', LogLevels.Warning);
+      }
+      if (offsetPhysType !== null && offsetPhysType !== valuesPhysType) {
+        si.loggerCompliance.log('Physical type of tagSeriesOffset does not match tagSeriesValues.', LogLevels.Warning);
+      }
     }
 
     return si;

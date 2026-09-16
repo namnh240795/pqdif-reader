@@ -207,7 +207,6 @@ class DataSource {
     xml += xmlGetElement(tagGuids.tagLocationDS, this.locationDS) + '\r\n';
     xml += xmlGetElement(tagGuids.tagTimeZoneDS, this.timeZoneDS) + '\r\n';
     xml += xmlGetElement(tagGuids.tagCoordinatesDS, this.coordinatesDS) + '\r\n';
-    xml += xmlGetElement(tagGuids.tagTimeZoneDS, this.timeZoneDS) + '\r\n';
     xml += xmlGetElement(tagGuids.tagComments, this.comments) + '\r\n';
     if (this.utcToLST !== null) xml += xmlGetElement(tagGuids.tagUTCtoLST, this.utcToLST) + '\r\n';
 

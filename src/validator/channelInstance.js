@@ -74,6 +74,8 @@ class ChannelInstance {
           ci.charactMagnitude = _getDoubleFromElement(el);
         } else if (guidEquals(tag, tagGuids.tagCharactFrequency)) {
           ci.charactFrequency = _getDoubleFromElement(el);
+        } else if (guidEquals(tag, tagGuids.tagChanTriggerModuleInfo)) {
+          ci.chanTriggerModuleInfo = _getUintFromElement(el);
         } else if (guidEquals(tag, tagGuids.tagChanTriggerModuleName)) {
           ci.chanTriggerModuleName = _getStringFromElement(el);
         } else if (guidEquals(tag, tagGuids.tagCrossTriggerDeviceName)) {
@@ -110,6 +112,10 @@ class ChannelInstance {
         ci.loggerApplication.log('Error reading tag: ' + ex.message, LogLevels.Error);
       }
     }
+
+    // Check required tags
+    if (ci.channelDefnIdx === 0) ci.loggerCompliance.log('Required tagChannelDefnIdx is Missing.', LogLevels.Error);
+    if (ci.seriesInstances.length === 0) ci.loggerCompliance.log('Required tagSeriesInstances is Missing.', LogLevels.Error);
 
     return ci;
   }
@@ -176,12 +182,13 @@ class ChannelInstance {
         const resolved = this.getSeriesInstance(observation, timeSeries);
         const startTimes = resolved.getSeriesValues(storageMethodIdTime);
         if (startTimes && startTimes.length > 0) {
-          let tsMin = observation.timeStart.getTime() / 1000 + startTimes[0] * 1000;
+          const startMs = observation.timeStart.getTime();
+          let tsMin = startMs + startTimes[0] * 1000;
           let tsMax = tsMin;
-          const lastTime = observation.timeStart.getTime() / 1000 + startTimes[startTimes.length - 1] * 1000;
+          const lastTime = startMs + startTimes[startTimes.length - 1] * 1000;
           if (lastTime < tsMin) tsMin = lastTime;
           if (lastTime > tsMax) tsMax = lastTime;
-          return { min: new Date(tsMin * 1000), max: new Date(tsMax * 1000) };
+          return { min: new Date(tsMin), max: new Date(tsMax) };
         }
       }
     }

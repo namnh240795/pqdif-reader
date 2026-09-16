@@ -327,7 +327,8 @@ class Serializer {
       }
     }
 
-    return collResult;
+    // Return total buffer size, not just collection header size
+    return { offset: collResult.offset, size: this.pos };
   }
 
   // -----------------------------------------------------------------------

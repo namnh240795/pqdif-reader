@@ -1,6 +1,6 @@
 {
   "name": "pqdif-reader",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Node.js library for reading, writing, and validating PQDIF (IEEE Std. 1159.3) power quality data files",
   "main": "src/index.js",
   "files": [

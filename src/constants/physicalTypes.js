@@ -73,7 +73,7 @@ function getTypeSize(physicalType) {
     case 60: // GUID
       return 16;
     default:
-      return 0;
+      return 1; // Match C++ behavior: unknown types default to 1 byte
   }
 }
 

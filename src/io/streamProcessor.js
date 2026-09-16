@@ -31,7 +31,7 @@ function adler32(data, prev = 0) {
 class StreamProcessor {
   constructor() {
     this.stream = null;
-    this.checksum = adler32(Buffer.alloc(0)); // initialize with adler32 of empty
+    this.checksum = 1; // zlib adler32 initial value is 1, not 0
   }
 
   /**
@@ -53,7 +53,7 @@ class StreamProcessor {
    * Reset the Adler-32 checksum to its initial value.
    */
   resetChecksum() {
-    this.checksum = adler32(Buffer.alloc(0));
+    this.checksum = 1; // zlib adler32 initial value
   }
 
   /**

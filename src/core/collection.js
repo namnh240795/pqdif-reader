@@ -108,46 +108,28 @@ class Collection extends Element {
 
   /**
    * Add element maintaining sorted order by tag GUID.
-   * Ported from C++ Add() using upper_bound.
+   * Ported from C++ Add() using upper_bound with O(log n) binary search.
    * @param {Element} element
    */
   add(element) {
     if (!element) return;
-
-    // Find upper_bound position
     const tag = element.getTag();
-    let insertIdx = this.elements.length;
-    for (let i = 0; i < this.elements.length; i++) {
-      const elTag = this.elements[i].getTag();
-      if (!tag || !elTag || elTag.compare(tag) < 0) {
-        continue;
-      }
-      insertIdx = i;
-      break;
+    if (!tag) {
+      this.elements.push(element);
+      return;
     }
-
-    // If tag is not null, find upper_bound
-    if (tag) {
-      insertIdx = this.elements.length;
-      for (let i = 0; i < this.elements.length; i++) {
-        const elTag = this.elements[i].getTag();
-        if (!elTag || elTag.compare(tag) < 0) {
-          continue;
-        }
-        // Found first element >= tag, this is lower_bound
-        // We need upper_bound (first > tag)
-        insertIdx = i;
-        // Check if equal, skip past all equal elements
-        while (insertIdx < this.elements.length &&
-               this.elements[insertIdx].getTag() &&
-               guidEquals(this.elements[insertIdx].getTag(), tag)) {
-          insertIdx++;
-        }
-        break;
+    // Binary search for upper_bound (first element > tag)
+    let lo = 0, hi = this.elements.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      const elTag = this.elements[mid].getTag();
+      if (!elTag || elTag.compare(tag) < 0) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
       }
     }
-
-    this.elements.splice(insertIdx, 0, element);
+    this.elements.splice(lo, 0, element);
 
     // Set element to reference the collection's record
     element.setRecord(this.getRecord());

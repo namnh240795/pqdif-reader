@@ -236,28 +236,97 @@ class Vector extends Element {
 
   /**
    * Set values from a typed array (matching C++ SetValuesINT1, etc.)
+   * Uses direct Buffer operations for matching typed arrays.
    * @param {number} physicalType
    * @param {Array|TypedArray} values
    */
   setValuesArray(physicalType, values) {
     this.setPhysicalType(physicalType);
     this.setCount(values.length);
+    if (!this.data || this.count === 0) return;
+
+    // Fast path: if values is a TypedArray matching our physical type, copy directly
+    const typeSize = getTypeSize(physicalType);
+    const matchingCtor = _getTypedArrayCtor(physicalType);
+    if (matchingCtor && values instanceof matchingCtor && values.length === this.count) {
+      const targetBuffer = matchingCtor === Uint8Array || matchingCtor === Int8Array
+        ? this.data
+        : (matchingCtor === Float64Array || matchingCtor === Float32Array
+            ? this.data
+            : this.data);
+      if (matchingCtor === Float64Array) {
+        const view = new Float64Array(this.data.buffer, this.data.byteOffset, this.count);
+        view.set(values);
+      } else if (matchingCtor === Float32Array) {
+        const view = new Float32Array(this.data.buffer, this.data.byteOffset, this.count);
+        view.set(values);
+      } else if (matchingCtor === Int32Array) {
+        const view = new Int32Array(this.data.buffer, this.data.byteOffset, this.count);
+        view.set(values);
+      } else if (matchingCtor === Uint32Array) {
+        const view = new Uint32Array(this.data.buffer, this.data.byteOffset, this.count);
+        view.set(values);
+      } else if (matchingCtor === Int16Array) {
+        const view = new Int16Array(this.data.buffer, this.data.byteOffset, this.count);
+        view.set(values);
+      } else if (matchingCtor === Uint16Array) {
+        const view = new Uint16Array(this.data.buffer, this.data.byteOffset, this.count);
+        view.set(values);
+      } else if (matchingCtor === Int8Array) {
+        const view = new Int8Array(this.data.buffer, this.data.byteOffset, this.count);
+        view.set(values);
+      } else if (matchingCtor === Uint8Array) {
+        const view = new Uint8Array(this.data.buffer, this.data.byteOffset, this.count);
+        view.set(values);
+      }
+      return;
+    }
+
+    // Generic path: write directly to buffer at correct offsets
     for (let i = 0; i < values.length; i++) {
-      this.setValue(i, values[i]);
+      const offset = i * typeSize;
+      _writeValueToBuffer(this.data, offset, physicalType, values[i]);
     }
   }
 
   /**
    * Get values as a typed array.
+   * Returns a view of the internal buffer for matching typed arrays.
    * @param {number} max
    * @returns {Array}
    */
   getValuesArray(max) {
-    const result = [];
     const count = Math.min(max, this.count);
+    if (count === 0 || !this.data) return [];
+
+    // Fast path: return a view of the internal buffer for matching types
+    const matchingCtor = _getTypedArrayCtor(this.physicalType);
+    if (matchingCtor) {
+      if (matchingCtor === Float64Array) {
+        return new Float64Array(this.data.buffer, this.data.byteOffset, count);
+      } else if (matchingCtor === Float32Array) {
+        return new Float32Array(this.data.buffer, this.data.byteOffset, count);
+      } else if (matchingCtor === Int32Array) {
+        return new Int32Array(this.data.buffer, this.data.byteOffset, count);
+      } else if (matchingCtor === Uint32Array) {
+        return new Uint32Array(this.data.buffer, this.data.byteOffset, count);
+      } else if (matchingCtor === Int16Array) {
+        return new Int16Array(this.data.buffer, this.data.byteOffset, count);
+      } else if (matchingCtor === Uint16Array) {
+        return new Uint16Array(this.data.buffer, this.data.byteOffset, count);
+      } else if (matchingCtor === Int8Array) {
+        return new Int8Array(this.data.buffer, this.data.byteOffset, count);
+      } else if (matchingCtor === Uint8Array) {
+        return new Uint8Array(this.data.buffer, this.data.byteOffset, count);
+      }
+    }
+
+    // Generic path: read directly from buffer
+    const typeSize = getTypeSize(this.physicalType);
+    const result = [];
     for (let i = 0; i < count; i++) {
-      const pv = this.getValue(i);
-      result.push(pv ? pv.value : 0);
+      const offset = i * typeSize;
+      result.push(_readValueFromBuffer(this.data, offset, this.physicalType));
     }
     return result;
   }
@@ -394,6 +463,142 @@ class Vector extends Element {
   }
 
   GetRawData() { return this.getRawData(); }
+}
+
+/**
+ * Returns the TypedArray constructor matching a physical type, or null if no direct match.
+ * @param {number} physicalType
+ * @returns {Function|null}
+ * @private
+ */
+function _getTypedArrayCtor(physicalType) {
+  switch (physicalType) {
+    case 20: return Int8Array;      // INTEGER1
+    case 21: return Int16Array;     // INTEGER2
+    case 22: return Int32Array;     // INTEGER4
+    case 32: return Uint32Array;    // UNS_INTEGER4
+    case 40: return Float32Array;   // REAL4
+    case 41: return Float64Array;   // REAL8
+    case 3:  return Int32Array;     // BOOLEAN4 (4-byte)
+    default: return null;
+  }
+}
+
+/**
+ * Write a value directly to a buffer at the given offset for the given physical type.
+ * @param {Buffer} buf
+ * @param {number} offset
+ * @param {number} physicalType
+ * @param {*} value
+ * @private
+ */
+function _writeValueToBuffer(buf, offset, physicalType, value) {
+  switch (physicalType) {
+    case 20: // INTEGER1
+      buf.writeInt8(value, offset);
+      break;
+    case 21: // INTEGER2
+      buf.writeInt16LE(value, offset);
+      break;
+    case 22: // INTEGER4
+      buf.writeInt32LE(value, offset);
+      break;
+    case 32: // UNS_INTEGER4
+      buf.writeUInt32LE(value, offset);
+      break;
+    case 40: // REAL4
+      buf.writeFloatLE(value, offset);
+      break;
+    case 41: // REAL8
+      buf.writeDoubleLE(value, offset);
+      break;
+    case 3: // BOOLEAN4
+      buf.writeInt32LE(value ? 1 : 0, offset);
+      break;
+    case 10: // CHAR1
+      buf.writeUInt8(typeof value === 'string' ? value.charCodeAt(0) : value, offset);
+      break;
+    case 11: // CHAR2
+      buf.writeInt16LE(typeof value === 'string' ? value.charCodeAt(0) : value, offset);
+      break;
+    case 30: // UNS_INTEGER1
+      buf.writeUInt8(value, offset);
+      break;
+    case 31: // UNS_INTEGER2
+      buf.writeUInt16LE(value, offset);
+      break;
+    case 42: // COMPLEX8 (two REAL4: real, imag)
+      if (value && typeof value === 'object' && value.real !== undefined) {
+        buf.writeFloatLE(value.real, offset);
+        buf.writeFloatLE(value.imag, offset + 4);
+      } else if (Array.isArray(value)) {
+        buf.writeFloatLE(value[0] || 0, offset);
+        buf.writeFloatLE(value[1] || 0, offset + 4);
+      }
+      break;
+    case 43: // COMPLEX16 (two REAL8: real, imag)
+      if (value && typeof value === 'object' && value.real !== undefined) {
+        buf.writeDoubleLE(value.real, offset);
+        buf.writeDoubleLE(value.imag, offset + 8);
+      } else if (Array.isArray(value)) {
+        buf.writeDoubleLE(value[0] || 0, offset);
+        buf.writeDoubleLE(value[1] || 0, offset + 8);
+      }
+      break;
+    case 50: // TIMESTAMPPQDIF (UINT4 day + REAL8 seconds)
+      if (value instanceof Date) {
+        // Convert PQDIF timestamp
+        const { EXCEL_DAYCOUNT_ADJUST, SECONDS_PER_DAY } = require('../constants/physicalTypes');
+        const dayCount = Math.floor(value.getTime() / (SECONDS_PER_DAY * 1000)) - EXCEL_DAYCOUNT_ADJUST;
+        const fraction = (value.getTime() % (SECONDS_PER_DAY * 1000)) / (SECONDS_PER_DAY * 1000);
+        buf.writeUInt32LE(dayCount, offset);
+        buf.writeDoubleLE(fraction * SECONDS_PER_DAY, offset + 4);
+      }
+      break;
+    case 60: // GUID (16 bytes)
+      if (Buffer.isBuffer(value)) {
+        value.copy(buf, offset, 0, Math.min(value.length, 16));
+      }
+      break;
+    default:
+      buf.writeUInt8(value, offset);
+      break;
+  }
+}
+
+/**
+ * Read a value directly from a buffer at the given offset for the given physical type.
+ * @param {Buffer} buf
+ * @param {number} offset
+ * @param {number} physicalType
+ * @returns {*}
+ * @private
+ */
+function _readValueFromBuffer(buf, offset, physicalType) {
+  switch (physicalType) {
+    case 20: return buf.readInt8(offset);
+    case 21: return buf.readInt16LE(offset);
+    case 22: return buf.readInt32LE(offset);
+    case 32: return buf.readUInt32LE(offset);
+    case 40: return buf.readFloatLE(offset);
+    case 41: return buf.readDoubleLE(offset);
+    case 3:  return buf.readInt32LE(offset) !== 0;
+    case 10: return buf.readUInt8(offset);
+    case 11: return buf.readInt16LE(offset);
+    case 30: return buf.readUInt8(offset);
+    case 31: return buf.readUInt16LE(offset);
+    case 42: return { real: buf.readFloatLE(offset), imag: buf.readFloatLE(offset + 4) };
+    case 43: return { real: buf.readDoubleLE(offset), imag: buf.readDoubleLE(offset + 8) };
+    case 50: {
+      const { EXCEL_DAYCOUNT_ADJUST, SECONDS_PER_DAY } = require('../constants/physicalTypes');
+      const dayCount = buf.readUInt32LE(offset);
+      const seconds = buf.readDoubleLE(offset + 4);
+      const ts = (dayCount + EXCEL_DAYCOUNT_ADJUST) * SECONDS_PER_DAY * 1000 + seconds * 1000;
+      return new Date(ts);
+    }
+    case 60: return buf.subarray(offset, offset + 16);
+    default: return buf.readUInt8(offset);
+  }
 }
 
 module.exports = { Vector };

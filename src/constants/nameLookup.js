@@ -13,6 +13,14 @@ const tagGuidToName = new Map();
 const idIntToName = new Map();
 // Map<string, string> - hex GUID string -> ID name
 const idGuidToName = new Map();
+// Map<string, string> - lowercase tag name -> tag name (for case-insensitive reverse lookup)
+const tagNameLowerToGuid = new Map();
+// Map<string, Buffer> - lowercase ID name -> GUID Buffer (for case-insensitive reverse lookup)
+const idNameLowerToGuid = new Map();
+// Map<string, number> - lowercase ID name -> integer ID (for case-insensitive reverse lookup)
+const idNameLowerToInt = new Map();
+// Map<number, string> - physical type ID -> name string
+const physTypeToName = new Map();
 
 // Populate tag maps
 tagNameToGuid.set('guidRecordSignaturePQDIF', tagGuids.guidRecordSignaturePQDIF);
@@ -1029,4 +1037,37 @@ idGuidToName.set('373f8c646ff47449a2fab66f4f223bf3', 'ID_SAGTYPE_1668_II');
 idGuidToName.set('d99115dc7539ba4599e8dac5c100a3eb', 'ID_SAGTYPE_1668_III');
 idGuidToName.set('a461729fbf1b5f4f92b5e7bf29450e06', 'ID_SAGTYPE_EVOLVING');
 
-module.exports = { tagNameToGuid, tagGuidToName, idIntToName, idGuidToName };
+// Build reverse lookup maps (case-insensitive)
+for (const [name, guid] of tagNameToGuid) {
+  tagNameLowerToGuid.set(name.toLowerCase(), guid);
+}
+for (const [hex, name] of idGuidToName) {
+  idNameLowerToGuid.set(name.toLowerCase(), Buffer.from(hex, 'hex'));
+}
+// Build integer ID reverse map directly from source (idIntToName Map overwrites duplicate keys)
+for (const [name, value] of Object.entries(idIntegers)) {
+  if (typeof value === 'number') {
+    idNameLowerToInt.set(name.toLowerCase(), value);
+  }
+}
+
+// Physical type name map (matches C++ m_listTypes)
+physTypeToName.set(1, 'ID_PHYS_TYPE_BOOLEAN1');
+physTypeToName.set(2, 'ID_PHYS_TYPE_BOOLEAN2');
+physTypeToName.set(3, 'ID_PHYS_TYPE_BOOLEAN4');
+physTypeToName.set(10, 'ID_PHYS_TYPE_CHAR1');
+physTypeToName.set(11, 'ID_PHYS_TYPE_CHAR2');
+physTypeToName.set(20, 'ID_PHYS_TYPE_INTEGER1');
+physTypeToName.set(21, 'ID_PHYS_TYPE_INTEGER2');
+physTypeToName.set(22, 'ID_PHYS_TYPE_INTEGER4');
+physTypeToName.set(30, 'ID_PHYS_TYPE_UNS_INTEGER1');
+physTypeToName.set(31, 'ID_PHYS_TYPE_UNS_INTEGER2');
+physTypeToName.set(32, 'ID_PHYS_TYPE_UNS_INTEGER4');
+physTypeToName.set(40, 'ID_PHYS_TYPE_REAL4');
+physTypeToName.set(41, 'ID_PHYS_TYPE_REAL8');
+physTypeToName.set(42, 'ID_PHYS_TYPE_COMPLEX8');
+physTypeToName.set(43, 'ID_PHYS_TYPE_COMPLEX16');
+physTypeToName.set(50, 'ID_PHYS_TYPE_TIMESTAMPPQDIF');
+physTypeToName.set(60, 'ID_PHYS_TYPE_GUID');
+
+module.exports = { tagNameToGuid, tagGuidToName, idIntToName, idGuidToName, tagNameLowerToGuid, idNameLowerToGuid, idNameLowerToInt, physTypeToName };
