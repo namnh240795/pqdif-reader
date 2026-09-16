@@ -1,13 +1,36 @@
 {
   "name": "pqdif-reader",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.1",
   "description": "Node.js library for reading, writing, and validating PQDIF (IEEE Std. 1159.3) power quality data files",
   "main": "src/index.js",
+  "files": [
+    "src/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "test": "node test/test.js"
   },
-  "keywords": ["pqdif", "power-quality", "ieee-1159", "pqd"],
+  "keywords": [
+    "pqdif",
+    "power-quality",
+    "ieee-1159",
+    "pqd",
+    "power-quality-monitoring",
+    "waveform",
+    "energy",
+    "electrical"
+  ],
+  "author": "namnh240795",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/namnh240795/pqdif-reader.git"
+  },
+  "homepage": "https://github.com/namnh240795/pqdif-reader",
+  "bugs": {
+    "url": "https://github.com/namnh240795/pqdif-reader/issues"
+  },
   "dependencies": {
     "pako": "^3.0.2"
   }
